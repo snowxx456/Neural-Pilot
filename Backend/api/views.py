@@ -141,3 +141,14 @@ def data_cleaning(request, dataset_id):
         return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['POST'])
+def data_visualization(dataset_id):
+    try:
+        # Get dataset from database
+        dataset = Dataset.objects.get(id=dataset_id)
+        file_path = dataset.file.path
+        df = pd.read_csv(file_path)
+        # Perform data visualization here
+    except Dataset.DoesNotExist:
+        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
