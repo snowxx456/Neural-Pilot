@@ -1,6 +1,3 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-
 from dotenv import load_dotenv
 load_dotenv()
 import os
@@ -9,16 +6,6 @@ import json
 from groq import Groq
 from kaggle.api.kaggle_api_extended import KaggleApi
 import threading
-
- 
-app = Flask(__name__)
-CORS(app, resources={
-    r"/api/*": {
-        "origins": ["http://localhost:3000"],
-        "methods": ["POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -420,37 +407,6 @@ def process_downloads(active_downloads, user_input):
         download_thread.start()
         return True
     return False
- 
-# Add this endpoint (before the main() function)
-@app.route('/api/search', methods=['POST'])
-def handle_search():
-    data = request.get_json()
-    query = data.get('query', '')
-    
-    try:
-        results = search_kaggle_datasets(query)
-        formatted = []
-        
-        for ds in results:
-            formatted.append({
-                'title': getattr(ds, 'title', 'Untitled Dataset'),
-                'owner': getattr(ds, 'ownerName', 'Unknown'),
-                'ref': getattr(ds, 'ref', '').replace('/datasets/', ''),
-                'description': getattr(ds, 'description', 
-                    getattr(ds, 'subtitle', 
-                    getattr(ds, 'summary', 'No description available'))),
-                'size': format_size(getattr(ds, 'size', 
-                    getattr(ds, 'totalBytes', 'Unknown size'))),
-                'downloads': getattr(ds, 'totalDownloads', 0),
-                'lastUpdated': getattr(ds, 'lastUpdated', 'Unknown'),
-                'url': f'https://www.kaggle.com/datasets/{getattr(ds, "ref", "")}'
-            })
-        
-        return jsonify({'datasets': formatted})
-    
-    except Exception as e:
-        logger.error(f"API error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
     
 
 def main():
