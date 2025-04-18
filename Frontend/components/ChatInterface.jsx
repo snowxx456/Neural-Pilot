@@ -17,45 +17,6 @@ const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Sample datasets - in a real app these would come from your API
-  const sampleDatasets = [
-    {
-      id: 1,
-      title: 'Housing Price Dataset',
-      description: 'This dataset contains house sale prices for King County, including Seattle. It includes homes sold between May 2014 and May 2015.',
-      downloadUrl: '#download-link',
-      externalLink: '#external-link'
-    },
-    {
-      id: 2,
-      title: 'Credit Card Fraud Detection',
-      description: 'Dataset containing transactions made by credit cards in September 2013 by European cardholders.',
-      downloadUrl: '#download-link',
-      externalLink: '#external-link'
-    },
-    {
-      id: 3,
-      title: 'Wine Quality Dataset',
-      description: 'Two datasets related to red and white variants of the Portuguese "Vinho Verde" wine.',
-      downloadUrl: '#download-link',
-      externalLink: '#external-link'
-    },
-    {
-      id: 4,
-      title: 'Iris Flower Dataset',
-      description: 'Classic dataset for classification, containing 3 classes of 50 instances each, where each class refers to a type of iris plant.',
-      downloadUrl: '#download-link',
-      externalLink: '#external-link'
-    },
-    {
-      id: 5,
-      title: 'Boston Housing Dataset',
-      description: 'Dataset derived from information collected by the U.S. Census Service concerning housing in the area of Boston, MA.',
-      downloadUrl: '#download-link',
-      externalLink: '#external-link'
-    }
-  ];
-
   // Auto-scroll to bottom of messages
   useEffect(() => {
     scrollToBottom();
@@ -69,7 +30,6 @@ const ChatInterface = () => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // Add user message
     const userMessage = {
       id: messages.length + 1,
       sender: 'user',
@@ -81,20 +41,42 @@ const ChatInterface = () => {
     setInput('');
     setIsLoading(true);
 
-    // Simulate API response delay
-    setTimeout(() => {
-      // Add bot response
+    try {
+      const response = await fetch('/api/search-dataset', { // Updated path
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: input }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text() || 'Failed to fetch datasets');
+      }
+
+      const data = await response.json();
+      
       const botResponse = {
         id: messages.length + 2,
         sender: 'bot',
-        text: `I've found several datasets related to "${input}". Please select one to begin building your ML model:`,
+        text: `I've found ${data.datasets.length} datasets related to "${input}". Please select one to begin building your ML model:`,
         timestamp: new Date()
       };
       
       setMessages(prev => [...prev, botResponse]);
-      setDatasets(sampleDatasets);
+      setDatasets(data.datasets);
+    } catch (error) {
+      console.error('Error:', error);
+      const errorResponse = {
+        id: messages.length + 2,
+        sender: 'bot',
+        text: `Sorry, I encountered an error searching for datasets: ${error.message}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const formatTime = (date) => {
@@ -154,7 +136,14 @@ const ChatInterface = () => {
             <h3 className="text-lg font-medium text-white mb-3 pl-4">Available Datasets</h3>
             <div className="flex overflow-x-auto pb-4 gap-4 pl-4 pr-4 scrollbar-thin">
               {datasets.map((dataset) => (
-                <DatasetCard key={dataset.id} dataset={dataset} />
+                <DatasetCard 
+                  key={dataset.ref} 
+                  dataset={{
+                    ...dataset,
+                    downloadUrl: `#download-${dataset.ref}`,
+                    externalLink: dataset.url
+                  }}
+                />
               ))}
             </div>
           </motion.div>
