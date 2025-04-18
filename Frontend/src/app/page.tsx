@@ -1,9 +1,9 @@
-export default function Home() {
+"use client";
+import React from 'react';
+import Landing from '../../components/Landing';
+
+export default function Page() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-blue-100 text-blue-900">
-      <h1 className="text-4xl font-bold">
-        Hello from Next.js 14 + TS + Tailwind!
-      </h1>
-    </main>
+    <Landing />
   );
 }
