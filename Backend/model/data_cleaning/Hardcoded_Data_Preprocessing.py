@@ -22,8 +22,8 @@ app.add_middleware(
 )
 
 # Create a directory to store uploaded and cleaned files
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+# UPLOAD_DIR = Path("uploads")
+# UPLOAD_DIR.mkdir(exist_ok=True)
 
 def load_file(file_path: Path) -> pd.DataFrame:
     if file_path.suffix == '.csv':

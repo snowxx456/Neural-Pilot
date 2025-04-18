@@ -11,6 +11,7 @@ import pandas as pd
 from django.conf import settings
 from model.search.groq_client import search_kaggle_datasets,format_size
 import logging
+from model.modeltraining.model_training import training
 
 logger = logging.getLogger(__name__)
 
@@ -187,3 +188,13 @@ def search_dataset(request):
     except Exception as e:
         logger.error(f"API error: {str(e)}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(["POST"])
+def model_training(request):
+    file_path = request.data.get('file_path','')
+    target_column = request.data.get('target_column','')
+    try:
+        # Load the dataset from the file path
+        training()
+    except:
+        return Response({"error": "Failed to train model"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
