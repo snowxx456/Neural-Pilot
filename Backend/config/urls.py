@@ -9,6 +9,7 @@ urlpatterns = [
     path('api/dataset/<int:dataset_id>/', get_dataset),  # Note the trailing slash
     path('api/data_cleaning/<int:dataset_id>/', data_cleaning),  # Note the trailing slash
     path('api/search/',search_dataset),
+    path('dataset/select/', select_dataset, name='select_dataset'),
     path('api/model_training/',model_training),  # Note the trailing slash
 ]
 

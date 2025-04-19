@@ -5,34 +5,8 @@ import { Message, Dataset } from '@/lib/types';
 import { ChatMessage } from './chat-message';
 import { ChatInput } from './chat-input';
 import { DatasetGrid } from '@/components/datasets/dataset-grid';
-
-// Simulated ML datasets for demo purposes
-const MOCK_DATASETS: Dataset[] = [
-  {
-    id: '1',
-    title: 'Iris Flower Classification Dataset',
-    description: 'This is perhaps the best known database to be found in the pattern recognition literature. The dataset contains 3 classes of 50 instances each, where each class refers to a type of iris plant.',
-    downloadLink: 'https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data',
-    externalLink: 'https://archive.ics.uci.edu/ml/datasets/iris',
-    category: 'Classification'
-  },
-  {
-    id: '2',
-    title: 'Wine Quality Dataset',
-    description: 'Two datasets are included, related to red and white vinho verde wine samples, from the north of Portugal. The goal is to model wine quality based on physicochemical tests.',
-    downloadLink: 'https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv',
-    externalLink: 'https://archive.ics.uci.edu/ml/datasets/wine+quality',
-    category: 'Regression'
-  },
-  {
-    id: '3',
-    title: 'Heart Disease Dataset',
-    description: 'This database contains 76 attributes, but all published experiments refer to using a subset of 14 of them. The "target" field refers to the presence of heart disease in the patient.',
-    downloadLink: 'https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data',
-    externalLink: 'https://archive.ics.uci.edu/ml/datasets/heart+disease',
-    category: 'Healthcare'
-  },
-];
+import axios from 'axios';
+import { useToast } from '@/hooks/use-toast';
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
@@ -46,8 +20,9 @@ export function ChatInterface() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     const newUserMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -56,9 +31,13 @@ export function ChatInterface() {
     
     setMessages(prev => [...prev, newUserMessage]);
     setIsProcessing(true);
-    
-    // Simulate AI response after a delay
-    setTimeout(() => {
+
+    try {
+      // Call backend API to search datasets using Groq
+      const response = await axios.post('http://localhost:8000/api/search/', {
+        query: content
+      });
+
       const newAssistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -66,14 +45,47 @@ export function ChatInterface() {
       };
       
       setMessages(prev => [...prev, newAssistantMessage]);
+
+      // Transform the API response to match our Dataset interface
+      const formattedDatasets: Dataset[] = response.data.datasets.map((ds: any) => ({
+        id: ds.ref,
+        title: ds.title,
+        description: ds.description,
+        downloadLink: ds.url,
+        externalLink: ds.url,
+        category: 'ML Dataset',
+        owner: ds.owner,
+        downloads: ds.downloads,
+        lastUpdated: ds.lastUpdated,
+        size: ds.size
+      }));
+
+      setDatasets(formattedDatasets);
+
+      if (formattedDatasets.length === 0) {
+        toast({
+          title: "No datasets found",
+          description: "Try a different search query",
+          variant: "destructive",
+        });
+      }
+
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error while searching for datasets. Please try again.'
+      };
+      setMessages(prev => [...prev, errorMessage]);
       
-      // Simulate dataset retrieval
-      // In a real app, this would be an API call to the backend
-      setTimeout(() => {
-        setDatasets(MOCK_DATASETS);
-        setIsProcessing(false);
-      }, 1000);
-    }, 1500);
+      toast({
+        title: "Error",
+        description: "Failed to search datasets. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleSelectDataset = (dataset: Dataset) => {

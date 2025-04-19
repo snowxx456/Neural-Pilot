@@ -12,6 +12,7 @@ from django.conf import settings
 from model.search.groq_client import search_kaggle_datasets,format_size
 import logging
 from model.modeltraining.modeltraining import training
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -200,3 +201,48 @@ def model_training(request):
         training(file_path=file_path,target_input=target_input)
     except:
         return Response({"error": "Failed to train model"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def select_dataset(request):
+    try:
+        dataset_ref = request.data.get('datasetRef')
+        dataset_url = request.data.get('url')
+        
+        if not dataset_ref or not dataset_url:
+            return Response({
+                'error': 'Dataset reference and URL are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create directory if it doesn't exist
+        dataset_dir = os.path.join(settings.MEDIA_ROOT, 'datasets')
+        os.makedirs(dataset_dir, exist_ok=True)
+        
+        # Download file
+        response = requests.get(dataset_url)
+        response.raise_for_status()  # Raise exception for bad status codes
+        
+        file_path = os.path.join(dataset_dir, f'{dataset_ref}.csv')
+        
+        with open(file_path, 'wb') as f:
+            f.write(response.content)
+            
+        # Create Dataset model instance
+        dataset = Dataset.objects.create(
+            name=dataset_ref,
+            file=file_path
+        )
+            
+        return Response({
+            'message': 'Dataset selected successfully',
+            'dataset_id': dataset.id,
+            'file_path': file_path
+        }, status=status.HTTP_200_OK)
+        
+    except requests.RequestException as e:
+        return Response({
+            'error': f'Failed to download dataset: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        return Response({
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

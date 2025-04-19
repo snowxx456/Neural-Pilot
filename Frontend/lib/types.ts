@@ -5,10 +5,14 @@ export interface Message {
 }
 
 export interface Dataset {
-  id?: string;
+  id: string;
   title: string;
   description: string;
   downloadLink: string;
   externalLink: string;
-  category?: string;
+  category: string;
+  owner?: string;
+  downloads?: number;
+  lastUpdated?: string;
+  size?: string;
 }
