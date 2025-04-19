@@ -9,6 +9,11 @@ import tempfile
 import json
 import pandas as pd
 from django.conf import settings
+from model.search.groq_client import search_kaggle_datasets,format_size
+import logging
+from model.modeltraining.model_training import training
+
+logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 def health_check(request):
@@ -152,3 +157,44 @@ def data_visualization(dataset_id):
         # Perform data visualization here
     except Dataset.DoesNotExist:
         return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def search_dataset(request):
+    query = request.data.get('query', '')
+
+    try:
+        results = search_kaggle_datasets(query)
+        formatted = []
+
+        for ds in results:
+            formatted.append({
+                'title': getattr(ds, 'title', 'Untitled Dataset'),
+                'owner': getattr(ds, 'ownerName', 'Unknown'),
+                'ref': getattr(ds, 'ref', '').replace('/datasets/', ''),
+                'description': getattr(
+                    ds, 'description',
+                    getattr(ds, 'subtitle',
+                    getattr(ds, 'summary', 'No description available'))
+                ),
+                'size': format_size(getattr(ds, 'size',
+                         getattr(ds, 'totalBytes', 'Unknown size'))),
+                'downloads': getattr(ds, 'totalDownloads', 0),
+                'lastUpdated': getattr(ds, 'lastUpdated', 'Unknown'),
+                'url': f'https://www.kaggle.com/datasets/{getattr(ds, "ref", "")}'
+            })
+
+        return Response({'datasets': formatted}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.error(f"API error: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(["POST"])
+def model_training(request):
+    file_path = request.data.get('file_path','')
+    target_column = request.data.get('target_column','')
+    try:
+        # Load the dataset from the file path
+        training()
+    except:
+        return Response({"error": "Failed to train model"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

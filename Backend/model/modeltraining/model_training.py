@@ -907,7 +907,7 @@ class AdvancedMLPipeline:
         print("\nPipeline execution complete!")
         return True
 
-def main():
+def training(file_path, target_input):
     """Main function to run the ML pipeline."""
     try:
         print("="*70)
@@ -924,13 +924,6 @@ def main():
         # Create pipeline instance
         pipeline = AdvancedMLPipeline()
         
-        # Get the data file path from user
-        while True:
-            file_path = input("Enter the path to your data file: ").strip()
-            if file_path:
-                break
-            print("Error: Please enter a valid file path")
-        
         # Step 1: Load data
         print("\nLoading data...")
         if not pipeline.load_data(file_path):
@@ -944,7 +937,6 @@ def main():
         
         # Get target column from user
         while True:
-            target_input = input("\nEnter the number or name of the target column: ").strip()
             try:
                 if target_input.isdigit():
                     target_idx = int(target_input) - 1
@@ -976,17 +968,13 @@ def main():
             pipeline.visualize_results()
             
             # Hyperparameter tuning
-            tune_choice = input("\nWould you like to perform hyperparameter tuning on the best model? (y/n): ").lower()
-            if tune_choice == 'y':
-                print("\nPerforming hyperparameter tuning...")
-                pipeline.hypertune_best_model(X, y)
-                pipeline.visualize_results()
+            print("\nPerforming hyperparameter tuning...")
+            pipeline.hypertune_best_model(X, y)
+            pipeline.visualize_results()
             
             # Save model
-            save_choice = input("\nWould you like to save the best model? (y/n): ").lower()
-            if save_choice == 'y':
-                model_name = input("Enter filename to save model (default: best_model.pkl): ") or "best_model.pkl"
-                pipeline.save_model(model_name)
+            model_name = input("Enter filename to save model (default: best_model.pkl): ") or "best_model.pkl"
+            pipeline.save_model(model_name)
             
             print("\nPipeline execution complete!")
         else:
@@ -998,5 +986,3 @@ def main():
     finally:
         input("\nPress Enter to exit...")
 
-if __name__ == "__main__":
-    main()
