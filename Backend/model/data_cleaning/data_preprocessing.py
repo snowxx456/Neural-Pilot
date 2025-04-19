@@ -106,5 +106,3 @@ def main(file_path):
         print("📁 Cleaned file saved as: cleaned_data.csv")
     except Exception as e:
         print(f"❌ Error: {e}")
-
-
