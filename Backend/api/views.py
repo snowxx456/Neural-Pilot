@@ -16,6 +16,8 @@ import requests
 import kagglehub
 from django.http import FileResponse
 from django.http import HttpResponse
+import shutil
+import glob
 
 logger = logging.getLogger(__name__)
 
@@ -261,54 +263,34 @@ def download_dataset(request):
 
         print(f"Attempting to download dataset: {dataset_ref}")
 
-        # Create directory if it doesn't exist
-        dataset_dir = os.path.join(settings.MEDIA_ROOT, 'downloads')
-        os.makedirs(dataset_dir, exist_ok=True)
+        # Step 1: Download using kagglehub (downloads to cache dir)
+        cache_dir = kagglehub.dataset_download(dataset_ref)
+        print(f"Downloaded to cache: {cache_dir}")
 
-        try:
-            # Download using kagglehub without force parameter
-            file_paths = kagglehub.dataset_download(
-                dataset_ref,
-                download_dir=dataset_dir
-            )
+        # Step 2: Move contents to a temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print(f"Copying to temp dir: {temp_dir}")
+            shutil.copytree(cache_dir, temp_dir, dirs_exist_ok=True)
 
-            if not file_paths:
-                raise Exception("No files downloaded")
+            # Step 3: Find the first CSV file
+            csv_files = glob.glob(os.path.join(temp_dir, '**', '*.csv'), recursive=True)
 
-            print(f"Downloaded files: {file_paths}")
+            if not csv_files:
+                return Response({
+                    'error': 'No CSV file found in the dataset'
+                }, status=status.HTTP_404_NOT_FOUND)
 
-            # Convert to list if it's not already
-            if not isinstance(file_paths, list):
-                file_paths = [file_paths]
+            csv_file = csv_files[0]
+            print(f"Found CSV: {csv_file}")
 
-            # Find the first CSV file
-            csv_file = None
-            for file_path in file_paths:
-                if str(file_path).endswith('.csv'):
-                    csv_file = file_path
-                    break
-
-            if not csv_file or not os.path.exists(str(csv_file)):
-                raise Exception("No CSV file found in dataset")
-
-            print(f"Selected CSV file: {csv_file}")
-
-            # Return the file
-            with open(str(csv_file), 'rb') as f:
-                response = HttpResponse(
-                    f.read(),
-                    content_type='text/csv'
-                )
-                filename = os.path.basename(str(csv_file))
-                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            # Step 4: Serve the CSV to frontend
+            with open(csv_file, 'rb') as f:
+                response = HttpResponse(f.read(), content_type='text/csv')
+                response['Content-Disposition'] = f'attachment; filename="{os.path.basename(csv_file)}"'
                 return response
 
-        except Exception as e:
-            print(f"Kaggle download error: {str(e)}")
-            raise
-
     except Exception as e:
-        print(f"General error: {str(e)}")
+        print(f"Download error: {str(e)}")
         return Response({
-            'error': str(e)
+            'error': f'An error occurred while processing the download: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

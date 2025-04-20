@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
-import { cn } from '@/lib/utils';
-import { Dataset } from '@/lib/types';
-import { Download, ExternalLink, FileText, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
-import axios from 'axios';
-import { useToast } from '@/hooks/use-toast';  // Updated import path
+import React, { useState } from "react";
+import { cn } from "@/lib/utils";
+import { Dataset } from "@/lib/types";
+import { Download, ExternalLink, FileText, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import axios from "axios";
+import { useToast } from "@/hooks/use-toast"; // Updated import path
 
 interface DatasetCardProps {
   dataset: Dataset;
@@ -18,41 +18,42 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleDownload = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleDownload = async (
+    e: React.MouseEvent<HTMLButtonElement>,
+    dataset: Dataset // Replace with the actual type if you're using TypeScript
+  ) => {
     e.stopPropagation();
     setIsLoading(true);
 
     try {
-      console.log('Attempting to download dataset:', dataset.id);
-      
+      console.log("Attempting to download dataset:", dataset.id);
+
       const response = await axios.post(
-        'http://localhost:8000/api/dataset/download/',
+        "http://127.0.0.1:8000/api/dataset/download/",
         {
-          datasetRef: dataset.id, // Use the id directly
-          title: dataset.title,
-          // kaggleUrl: dataset.externalLink
+          datasetRef: dataset.id,
         },
         {
-          responseType: 'blob',
+          responseType: "blob",
           headers: {
-            'Accept': 'text/csv',
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
-          timeout: 3000
         }
       );
 
       if (response.status === 200 && response.data) {
-        const blob = new Blob([response.data], { 
-          type: response.headers['content-type'] || 'text/csv' 
+        const blob = new Blob([response.data], {
+          type: response.headers["content-type"] || "text/csv",
         });
         const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = url;
-        link.setAttribute('download', `${dataset.title.replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
+        link.setAttribute(
+          "download",
+          `${dataset.title.replace(/[^a-zA-Z0-9]/g, "_")}.csv`
+        );
         document.body.appendChild(link);
         link.click();
-        
         window.URL.revokeObjectURL(url);
         link.remove();
 
@@ -62,11 +63,11 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
         });
       }
     } catch (error: any) {
-      console.error('Download error:', error);
+      console.error("Download error:", error);
       toast({
         title: "Download Failed",
         description: error.message || "Failed to download dataset",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -89,40 +90,40 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
     >
       <div className="absolute inset-0 bg-gradient-to-br from-chart-1/5 via-transparent to-chart-2/5 opacity-0 group-hover:opacity-100 transition-opacity" />
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-chart-1 to-chart-2 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-      
+
       <div className="p-6 relative">
         <div className="mb-4 flex items-center justify-between">
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
             <Sparkles className="h-6 w-6 text-primary animate-pulse-slow" />
           </div>
-          
+
           <div className="px-3 py-1.5 rounded-full glass-effect text-chart-2 text-xs font-medium border border-chart-2/20">
-            {dataset.category || 'Dataset'}
+            {dataset.category || "Dataset"}
           </div>
         </div>
-        
+
         <h3 className="text-lg font-medium mb-2 line-clamp-1 group-hover:text-glow transition-all">
           {dataset.title}
         </h3>
-        
+
         <p className="text-sm text-muted-foreground mb-6 line-clamp-3">
           {dataset.description}
         </p>
-        
+
         <div className="mt-auto flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             className="flex-1 gap-1.5 group/btn"
             onClick={(e) => {
               e.stopPropagation();
-              window.open(dataset.externalLink, '_blank');
+              window.open(dataset.externalLink, "_blank");
             }}
           >
             <ExternalLink className="h-4 w-4 group-hover/btn:text-chart-1 transition-colors" />
-            <span>View Details</span>
+            <span>Select</span>
           </Button>
-          
+
           <Button
             onClick={(e) => handleDownload(e, dataset)}
             disabled={isLoading}
