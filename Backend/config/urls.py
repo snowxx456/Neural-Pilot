@@ -1,5 +1,5 @@
 from django.urls import path
-from api.views import health_check, upload_dataset, get_dataset, data_cleaning, search_dataset, model_training
+from api.views import health_check, upload_dataset, get_dataset, data_cleaning, search_dataset, model_training , select_dataset, download_dataset
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -10,6 +10,7 @@ urlpatterns = [
     path('api/data_cleaning/<int:dataset_id>/', data_cleaning),  # Note the trailing slash
     path('api/search/',search_dataset),
     path('dataset/select/', select_dataset, name='select_dataset'),
+    path('api/dataset/download/', download_dataset, name='download_dataset'),
     path('api/model_training/',model_training),  # Note the trailing slash
 ]
 

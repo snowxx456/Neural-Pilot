@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Dataset } from '@/lib/types';
 import { DatasetCard } from './dataset-card';
 import { motion } from 'framer-motion';
@@ -14,33 +14,51 @@ interface DatasetGridProps {
 
 export function DatasetGrid({ datasets, onSelectDataset }: DatasetGridProps) {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleDownload = async (e: React.MouseEvent, dataset: Dataset) => {
-    e.stopPropagation();
+    e.preventDefault(); // Prevent default navigation
+    e.stopPropagation(); // Stop event bubbling
+    
     try {
-      const response = await axios.get(dataset.url, {
-        responseType: 'blob'
-      });
+      setIsLoading(true); // Add loading state if not already present
       
+      const response = await axios.post(
+        'http://localhost:8000/api/dataset/download/',
+        {
+          datasetRef: dataset.ref,
+          title: dataset.title
+        },
+        {
+          responseType: 'blob' // Important for handling file downloads
+        }
+      );
+
+      // Create and trigger download
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `${dataset.title}.csv`);
       document.body.appendChild(link);
       link.click();
+      
+      // Cleanup
       window.URL.revokeObjectURL(url);
       link.remove();
-      
+
       toast({
         title: "Success",
         description: "Dataset downloaded successfully",
       });
     } catch (error) {
+      console.error('Download error:', error);
       toast({
         title: "Error",
-        description: "Failed to download dataset",
+        description: "Failed to download dataset. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 

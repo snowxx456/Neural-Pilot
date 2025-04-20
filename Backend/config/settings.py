@@ -154,9 +154,9 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Add these at the bottom of your settings.py
-MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')  # Files will be saved here
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Files will be saved here
 MEDIA_URL = '/media/'  # URL prefix for accessing files
 
 # Security settings for file uploads
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 2.5MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880   # 2.5MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880   # 5MB

@@ -11,6 +11,7 @@ export interface Dataset {
   downloadLink: string;
   externalLink: string;
   category: string;
+  ref: string;
   owner?: string;
   downloads?: number;
   lastUpdated?: string;

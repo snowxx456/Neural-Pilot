@@ -1,11 +1,13 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Dataset } from '@/lib/types';
 import { Download, ExternalLink, FileText, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import axios from 'axios';
+import { useToast } from '@/hooks/use-toast';  // Updated import path
 
 interface DatasetCardProps {
   dataset: Dataset;
@@ -13,6 +15,64 @@ interface DatasetCardProps {
 }
 
 export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleDownload = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    setIsLoading(true);
+
+    try {
+      console.log('Attempting to download dataset:', dataset.id);
+      
+      const response = await axios.post(
+        'http://localhost:8000/api/dataset/download/',
+        {
+          datasetRef: dataset.id, // Use the id directly
+          title: dataset.title,
+          // kaggleUrl: dataset.externalLink
+        },
+        {
+          responseType: 'blob',
+          headers: {
+            'Accept': 'text/csv',
+            'Content-Type': 'application/json'
+          },
+          timeout: 3000
+        }
+      );
+
+      if (response.status === 200 && response.data) {
+        const blob = new Blob([response.data], { 
+          type: response.headers['content-type'] || 'text/csv' 
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${dataset.title.replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        
+        window.URL.revokeObjectURL(url);
+        link.remove();
+
+        toast({
+          title: "Success",
+          description: "Dataset downloaded successfully",
+        });
+      }
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to download dataset",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -63,17 +123,24 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
             <span>View Details</span>
           </Button>
           
-          <Button 
-            variant="secondary" 
+          <Button
+            onClick={(e) => handleDownload(e, dataset)}
+            disabled={isLoading}
+            variant="default"
             size="sm"
-            className="flex-1 gap-1.5 group/btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(dataset.downloadLink, '_blank');
-            }}
+            className="flex-1 gap-1.5"
           >
-            <Download className="h-4 w-4 group-hover/btn:text-chart-2 transition-colors" />
-            <span>Download</span>
+            {isLoading ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                <span>Downloading...</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                <span>Download</span>
+              </>
+            )}
           </Button>
         </div>
       </div>

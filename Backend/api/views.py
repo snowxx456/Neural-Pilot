@@ -13,6 +13,9 @@ from model.search.groq_client import search_kaggle_datasets,format_size
 import logging
 from model.modeltraining.modeltraining import training
 import requests
+import kagglehub
+from django.http import FileResponse
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -243,6 +246,69 @@ def select_dataset(request):
             'error': f'Failed to download dataset: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
+        return Response({
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def download_dataset(request):
+    try:
+        dataset_ref = request.data.get('datasetRef')
+        if not dataset_ref:
+            return Response({
+                'error': 'Dataset reference is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        print(f"Attempting to download dataset: {dataset_ref}")
+
+        # Create directory if it doesn't exist
+        dataset_dir = os.path.join(settings.MEDIA_ROOT, 'downloads')
+        os.makedirs(dataset_dir, exist_ok=True)
+
+        try:
+            # Download using kagglehub without force parameter
+            file_paths = kagglehub.dataset_download(
+                dataset_ref,
+                download_dir=dataset_dir
+            )
+
+            if not file_paths:
+                raise Exception("No files downloaded")
+
+            print(f"Downloaded files: {file_paths}")
+
+            # Convert to list if it's not already
+            if not isinstance(file_paths, list):
+                file_paths = [file_paths]
+
+            # Find the first CSV file
+            csv_file = None
+            for file_path in file_paths:
+                if str(file_path).endswith('.csv'):
+                    csv_file = file_path
+                    break
+
+            if not csv_file or not os.path.exists(str(csv_file)):
+                raise Exception("No CSV file found in dataset")
+
+            print(f"Selected CSV file: {csv_file}")
+
+            # Return the file
+            with open(str(csv_file), 'rb') as f:
+                response = HttpResponse(
+                    f.read(),
+                    content_type='text/csv'
+                )
+                filename = os.path.basename(str(csv_file))
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+
+        except Exception as e:
+            print(f"Kaggle download error: {str(e)}")
+            raise
+
+    except Exception as e:
+        print(f"General error: {str(e)}")
         return Response({
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
