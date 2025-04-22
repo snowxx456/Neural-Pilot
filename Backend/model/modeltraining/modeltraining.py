@@ -30,6 +30,8 @@ import joblib
 from skopt import BayesSearchCV
 from skopt.space import Real, Categorical, Integer
 from .targetcolumn import file_path, target_column
+from pathlib import Path
+from .targetcolumn import TargetColumnRecommender
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -50,6 +52,7 @@ class AdvancedMLPipeline:
         self.y_test = None
         self.df = None
         self.target_column = None
+        self.recommender = TargetColumnRecommender()
         
     def load_data(self, file_path):
         """Load data from CSV file and return a pandas DataFrame with robust error handling."""
@@ -874,35 +877,36 @@ class AdvancedMLPipeline:
             print(f"\nError saving model: {str(e)}")
             return False
     
-    def run_pipeline(self, file_path, target_column):
-        """Run the complete ML pipeline with specified parameters."""
-        # Step 1: Load data
-        if not self.load_data(file_path):
+    def run_pipeline(self, file_path, target_column=None):
+        """Run the complete ML pipeline."""
+        try:
+            # Convert to Path object for better path handling
+            file_path = Path(file_path)
+            
+            if not file_path.exists():
+                print(f"Error: File not found: {file_path}")
+                return False
+
+            # Load and analyze data
+            if not self.recommender.load_data(str(file_path)):
+                return False
+
+            # Get target recommendation if not provided
+            if target_column is None:
+                result = self.recommender.analyze_for_target()
+                if result:
+                    target_column = result['target_column']
+                    print(f"\nRecommended target column: {target_column}")
+                else:
+                    print("\nError: Could not determine target column automatically")
+                    return False
+
+            # Continue with pipeline...
+            return True
+
+        except Exception as e:
+            print(f"Pipeline error: {str(e)}")
             return False
-        
-        # Step 2: Set target column
-        if not self.set_target(target_column):
-            return False
-        
-        # Rest of your existing pipeline implementation...
-        X, y = self.prepare_data()
-        self.train_models(X, y)
-        self.visualize_results()
-        
-        # Optional tuning
-        tune_choice = input("\nPerform hyperparameter tuning? (y/n): ").lower()
-        if tune_choice == 'y':
-            self.hypertune_best_model(X, y)
-            self.visualize_results()
-        
-        # Optional model saving
-        save_choice = input("\nSave the best model? (y/n): ").lower()
-        if save_choice == 'y':
-            model_name = input("Enter filename (default: best_model.pkl): ") or "best_model.pkl"
-            self.save_model(model_name)
-        
-        print("\nPipeline execution complete!")
-        return True
 
 def main():
     """Main function to run the ML pipeline."""

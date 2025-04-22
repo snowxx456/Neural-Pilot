@@ -9,7 +9,7 @@ from groq import Groq
 load_dotenv()
 
 # Configuration - Set your default file path here
-DEFAULT_FILE_PATH = "Backend\model\modeltraining\cleaned_data.csv"  # Change this to your default dataset path
+DEFAULT_FILE_PATH = r"D:\projects\Nerual-Pilot\Backend\model\modeltraining\cleaned_data.csv"  # Change this to your default dataset path
 
 class TargetColumnRecommender:
     def __init__(self):

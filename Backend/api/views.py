@@ -1,23 +1,22 @@
-from rest_framework.decorators import api_view , parser_classes
+from rest_framework.decorators import api_view, parser_classes
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
 from rest_framework import status
+from django.conf import settings
+from django.http import FileResponse, HttpResponse
 from .models import Dataset
 import os
-from model.data_cleaning.llm_cleaning import LLMCLEANINGAGENT
-import tempfile
 import json
 import pandas as pd
-from django.conf import settings
-from model.search.groq_client import search_kaggle_datasets,format_size
-import logging
-from model.modeltraining.modeltraining import training
 import requests
 import kagglehub
-from django.http import FileResponse
-from django.http import HttpResponse
+import logging
 import shutil
 import glob
+import tempfile
+from model.data_cleaning.llm_cleaning import LLMCLEANINGAGENT
+from model.search.groq_client import search_kaggle_datasets, format_size
+from model.modeltraining.modeltraining import AdvancedMLPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -197,15 +196,31 @@ def search_dataset(request):
 
 @api_view(['POST'])
 def model_training(request):
-    id = request.data.get('id','')
-    file_id = Dataset.objects.get(id=id)
-    file_path = file_id.file.path
-    target_input = request.data.get('target_input','')
     try:
-        # Load the dataset from the file path
-        training(file_path=file_path,target_input=target_input)
-    except:
-        return Response({"error": "Failed to train model"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        file_path = request.data.get('file_path')
+        target_column = request.data.get('target_column')
+        
+        if not file_path:
+            return Response({
+                "error": "File path is required"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        pipeline = AdvancedMLPipeline()
+        success = pipeline.run_pipeline(file_path, target_column)
+        
+        if success:
+            return Response({
+                "message": "Model training completed successfully"
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                "error": "Model training failed"
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def select_dataset(request):
