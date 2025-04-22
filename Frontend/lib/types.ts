@@ -17,3 +17,15 @@ export interface Dataset {
   lastUpdated?: string;
   size?: string;
 }
+
+
+
+export type PreprocessingStatus = 'idle' | 'processing' | 'completed' | 'error';
+
+export interface PreprocessingStep {
+  id: number;
+  title: string;
+  description: string;
+  icon: any;
+  status: 'pending' | 'processing' | 'completed';
+}

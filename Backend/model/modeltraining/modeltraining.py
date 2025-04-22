@@ -29,6 +29,7 @@ from scipy import stats
 import joblib
 from skopt import BayesSearchCV
 from skopt.space import Real, Categorical, Integer
+from .targetcolumn import file_path, target_column
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -874,7 +875,7 @@ class AdvancedMLPipeline:
             return False
     
     def run_pipeline(self, file_path, target_column):
-        """Run the complete ML pipeline from data loading to model training."""
+        """Run the complete ML pipeline with specified parameters."""
         # Step 1: Load data
         if not self.load_data(file_path):
             return False
@@ -883,102 +884,54 @@ class AdvancedMLPipeline:
         if not self.set_target(target_column):
             return False
         
-        # Step 3: Prepare data
+        # Rest of your existing pipeline implementation...
         X, y = self.prepare_data()
-        
-        # Step 4: Train models
         self.train_models(X, y)
-        
-        # Step 5: Visualize results
         self.visualize_results()
         
-        # Step 6: Hyperparameter tuning
-        tune_choice = input("\nWould you like to perform hyperparameter tuning on the best model? (y/n): ")
-        if tune_choice.lower() == 'y':
+        # Optional tuning
+        tune_choice = input("\nPerform hyperparameter tuning? (y/n): ").lower()
+        if tune_choice == 'y':
             self.hypertune_best_model(X, y)
-            # Re-visualize with tuned model
             self.visualize_results()
         
-        # Step 7: Save the best model
-        save_choice = input("\nWould you like to save the best model? (y/n): ")
-        if save_choice.lower() == 'y':
-            self.save_model()
+        # Optional model saving
+        save_choice = input("\nSave the best model? (y/n): ").lower()
+        if save_choice == 'y':
+            model_name = input("Enter filename (default: best_model.pkl): ") or "best_model.pkl"
+            self.save_model(model_name)
         
         print("\nPipeline execution complete!")
         return True
 
-def training(file_path, target_input):
+def main():
     """Main function to run the ML pipeline."""
     try:
         print("="*70)
         print("Advanced Machine Learning Pipeline")
         print("="*70)
-        print("\nThis pipeline will:")
-        print("- Automatically detect regression or classification problems")
-        print("- Handle missing values and categorical features")
-        print("- Train multiple models with cross-validation")
-        print("- Perform hyperparameter tuning with Bayesian optimization")
-        print("- Generate comprehensive visualizations")
-        print("- Save the best model for future use\n")
+        
+        if not file_path:
+            print("Error: No file path specified in t.py")
+            return
+            
+        if not target_column:
+            print("Error: Could not determine target column automatically")
+            print("Please specify target column manually in t.py")
+            return
         
         # Create pipeline instance
         pipeline = AdvancedMLPipeline()
         
-        # Step 1: Load data
-        print("\nLoading data...")
-        if not pipeline.load_data(file_path):
-            print("Failed to load data. Please check your file path and try again.")
-            return
+        print("\nStarting pipeline with:")
+        print(f"Data file: {file_path}")
+        print(f"Target column: {target_column}")
         
-        # Display available columns
-        print("\nAvailable columns:")
-        for i, col in enumerate(pipeline.df.columns, 1):
-            print(f"{i}. {col}")
+        # Run the pipeline
+        success = pipeline.run_pipeline(file_path, target_column)
         
-        # Get target column from user
-        while True:
-            try:
-                if target_input.isdigit():
-                    target_idx = int(target_input) - 1
-                    if 0 <= target_idx < len(pipeline.df.columns):
-                        target_column = pipeline.df.columns[target_idx]
-                        break
-                    print(f"Error: Please enter a number between 1 and {len(pipeline.df.columns)}")
-                elif target_input in pipeline.df.columns:
-                    target_column = target_input
-                    break
-                else:
-                    print(f"Error: '{target_input}' is not a valid column name")
-            except Exception as e:
-                print(f"Error: {str(e)}")
-        
-        # Set target and run pipeline
-        print(f"\nSetting target column to: {target_column}")
-        if pipeline.set_target(target_column):
-            # Prepare data
-            print("\nPreprocessing data...")
-            X, y = pipeline.prepare_data()
-            
-            # Train models
-            print("\nTraining models...")
-            pipeline.train_models(X, y)
-            
-            # Visualize results
-            print("\nGenerating visualizations...")
-            pipeline.visualize_results()
-            
-            # Hyperparameter tuning
-            print("\nPerforming hyperparameter tuning...")
-            pipeline.hypertune_best_model(X, y)
-            pipeline.visualize_results()
-            
-            # Save model
-            model_name = input("Enter filename to save model (default: best_model.pkl): ") or "best_model.pkl"
-            pipeline.save_model(model_name)
-            
-            print("\nPipeline execution complete!")
-        else:
-            print("Failed to set target column. Please check your input and try again.")
+        if not success:
+            print("Pipeline execution failed")
     
     except Exception as e:
         print(f"\nAn unexpected error occurred: {str(e)}")
@@ -986,3 +939,5 @@ def training(file_path, target_input):
     finally:
         input("\nPress Enter to exit...")
 
+if __name__ == "__main__":
+    main()
