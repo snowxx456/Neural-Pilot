@@ -32,6 +32,7 @@ except Exception as e:
     logger.error(f"Setup error: {str(e)}")
     exit(1)
  
+
 def get_semantic_analysis(user_query):
     """Use Groq to fully automate query understanding and search strategy"""
     try:
@@ -39,14 +40,18 @@ def get_semantic_analysis(user_query):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an AI expert at understanding dataset search intentions. You analyze what users are truly looking for in a dataset and create an optimized search strategy. Format your response as valid JSON only."
+                    "content": """You are an AI expert at understanding dataset search intentions. Your task is to analyze what users are truly looking for in a dataset and extract only the essential search terms.
+
+IMPORTANT: When users write natural language queries like "I want dataset of churn prediction" or "Looking for data about stock prices", you must extract ONLY the core search terms (e.g. "churn prediction" or "stock prices") without any of the request language. Users often phrase their needs conversationally, but the search system needs just the key terms.
+
+Format your response as valid JSON only with no additional text."""
                 },
                 {
                     "role": "user",
                     "content": f"""
                     Analyze this dataset search request: '{user_query}'
                     Return a JSON object with these fields:
-                    1. "search_query": The optimal search string for Kaggle (use quotes for phrases)
+                    1. "search_query": ONLY the core search terms, with all request language removed (e.g., for "I want dataset of churn prediction" → "churn prediction")
                     2. "related_terms": Alternative terms or synonyms that might appear in relevant datasets
                     3. "context": The subject domain this query belongs to (e.g., 'computer science', 'finance')
                     4. "relevance_rules": Rules for determining if a dataset is relevant (e.g., "Must contain term X in title or description")
@@ -60,11 +65,18 @@ def get_semantic_analysis(user_query):
         )
        
         response = chat_completion.choices[0].message.content.strip()
+        
+        # Log the raw response for debugging
+        logger.info(f"Raw Groq response: {response}")
        
         # Try to parse JSON
         try:
             analysis = json.loads(response)
             logger.info(f"Query analysis: {analysis}")
+            
+            # Log the extracted search query
+            logger.info(f"Extracted search query: '{analysis.get('search_query', '')}'")
+            
             return analysis
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON from LLM: {e}")
@@ -77,8 +89,8 @@ def get_semantic_analysis(user_query):
                         query = search_query.group(1)
                         return {"search_query": query, "related_terms": [user_query],
                                 "context": "general", "relevance_rules": [], "irrelevance_signals": []}
-                except:
-                    pass
+                except Exception as regex_error:
+                    logger.error(f"Regex extraction error: {regex_error}")
            
             # Fallback to simple structure
             return {
@@ -99,6 +111,7 @@ def get_semantic_analysis(user_query):
             "relevance_rules": [],
             "irrelevance_signals": []
         }
+
  
 def evaluate_dataset_relevance(dataset, analysis):
     """Evaluate dataset relevance using the Groq-generated analysis"""
