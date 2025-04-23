@@ -21,7 +21,7 @@ const navItems = [
     label: 'Visualization',
     href: '/visualization',
     icon: LineChart,
-    disabled: true
+    
   },
   {
     label: 'Model Training',
