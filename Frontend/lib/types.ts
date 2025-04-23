@@ -79,3 +79,37 @@ export interface ChartConfig {
   showTooltip: boolean;
   animation: boolean;
 }
+
+export interface ModelMetrics {
+  precision: number
+  recall: number
+  f1: number
+}
+
+export interface CrossValidationScore {
+  mean: number
+  std: number
+}
+
+export interface ModelResult {
+  name: string
+  accuracy: number
+  metrics: ModelMetrics
+  report: string
+  trainingTime: number
+  cvTime: number
+  cvScore: CrossValidationScore
+  parameters: Record<string, any>
+  description?: string
+  isBest: boolean
+}
+
+export interface FeatureImportance {
+  feature: string
+  importance: number
+}
+
+export interface ConfusionMatrixData {
+  matrix: number[][]
+  labels: string[]
+}

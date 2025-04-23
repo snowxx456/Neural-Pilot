@@ -166,7 +166,7 @@ class AdvancedMLPipeline:
         return True
     
     def prepare_data(self):
-        """Prepare data for ML by handling missing values and encoding categorical features."""
+        """Enhanced data preparation with feature engineering"""
         print("\nStarting data preprocessing...")
         
         # Handle missing values in the target variable
@@ -224,6 +224,18 @@ class AdvancedMLPipeline:
         except Exception as e:
             print(f"\nCould not extract feature names: {str(e)}")
             self.feature_names = None
+        
+        # Add feature interactions
+        numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns
+        for i in range(len(numeric_cols)):
+            for j in range(i+1, len(numeric_cols)):
+                col_i, col_j = numeric_cols[i], numeric_cols[j]
+                X[f'{col_i}_{col_j}_interact'] = X[col_i] * X[col_j]
+                
+        # Add polynomial features for numeric columns
+        from sklearn.preprocessing import PolynomialFeatures
+        poly = PolynomialFeatures(degree=2, include_bias=False)
+        poly_features = poly.fit_transform(X[numeric_cols])
         
         return X, y
     
