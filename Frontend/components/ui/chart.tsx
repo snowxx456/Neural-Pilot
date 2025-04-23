@@ -363,3 +363,7 @@ export {
   ChartLegendContent,
   ChartStyle,
 };
+
+export function Chart({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}

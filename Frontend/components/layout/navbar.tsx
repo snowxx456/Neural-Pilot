@@ -25,9 +25,9 @@ const navItems = [
   },
   {
     label: 'Model Training',
-    href: '/training',
+    href: '/model_training',
     icon: BrainCircuit,
-    disabled: true
+    disabled: false
   }
 ];
 
