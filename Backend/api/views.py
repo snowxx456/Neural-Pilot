@@ -4,7 +4,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework import status
 from django.conf import settings
 from django.http import FileResponse, HttpResponse
-from .models import Dataset, PreprocessingStep
+from .models import Dataset
 import os
 import json
 import pandas as pd
@@ -16,24 +16,8 @@ import glob
 import tempfile
 from model.search.groq_client import search_kaggle_datasets, format_size
 from model.modeltraining.modeltraining import AdvancedMLPipeline
-from .serializers import PreprocessingStepSerializer
 from rest_framework import viewsets
 
-class PreprocessingStepViewSet(viewsets.ViewSet):
-    def list(self, request):
-        queryset = PreprocessingStep.objects.all().order_by('step_id')
-        serializer = PreprocessingStepSerializer(queryset, many=True)
-        return Response(serializer.data)
-    
-    def update_status(self, request, step_id):
-        try:
-            step = PreprocessingStep.objects.get(step_id=step_id)
-            step.status = request.data.get('status', step.status)
-            step.save()
-            serializer = PreprocessingStepSerializer(step)
-            return Response(serializer.data)
-        except PreprocessingStep.DoesNotExist:
-            return Response({'error': 'Step not found'}, status=404)
 
 
 logger = logging.getLogger(__name__)
