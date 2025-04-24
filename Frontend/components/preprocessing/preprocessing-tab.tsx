@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import React, { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowRight, 
-  Database, 
-  Download, 
-  LineChart, 
-  Loader2, 
+import React, { useState, useCallback, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowRight,
+  Database,
+  Download,
+  LineChart,
+  Loader2,
   Sparkles,
   CheckCircle2,
   Binary,
@@ -16,101 +16,182 @@ import {
   Scale,
   Sigma,
   Brain,
-  Wand2
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { PreprocessingStatus, PreprocessingStep } from '@/lib/types';
-import { DataTable } from './data-table';
-import { ProcessingStep } from './processing-step';
-import { cn } from '@/lib/utils';
+  Wand2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PreprocessingStatus, PreprocessingStep } from "@/lib/types";
+import { DataTable } from "./data-table";
+import { ProcessingStep } from "./processing-step";
+import { cn } from "@/lib/utils";
+const API_URL = "http://127.0.0.1:8000/";
 
 interface PreprocessingTabProps {
   datasetName: string;
   onVisualize: () => void;
 }
 
-const MOCK_STEPS: PreprocessingStep[] = [
+const INITIAL_STEPS: PreprocessingStep[] = [
   {
     id: 1,
-    title: 'Loading Dataset',
-    description: 'Reading and parsing the raw data file',
+    title: "Loading Dataset",
+    description: "Reading and parsing the raw data file",
     icon: FileJson,
-    status: 'pending'
+    status: "pending",
   },
   {
     id: 2,
-    title: 'Handling Missing Values',
-    description: 'Identifying and imputing missing data points',
+    title: "Handling Index Columns",
+    description: "Identifying and Index columns and removing it",
     icon: FilterX,
-    status: 'pending'
+    status: "pending",
   },
   {
     id: 3,
-    title: 'Feature Scaling',
-    description: 'Normalizing numerical features to a standard range',
+    title: "Handling Missing Values",
+    description: "Identifying missing values and applying appropiate methods",
     icon: Scale,
-    status: 'pending'
+    status: "pending",
   },
   {
     id: 4,
-    title: 'Feature Engineering',
-    description: 'Creating new features and transforming existing ones',
+    title: "Handling Outliers",
+    description: "Finding outliers and normalizing the data",
     icon: Binary,
-    status: 'pending'
+    status: "pending",
   },
   {
     id: 5,
-    title: 'Statistical Analysis',
-    description: 'Computing correlations and feature importance',
+    title: "Removing duplicate columns",
+    description: "Removing duplicate columns from the dataset",
     icon: Sigma,
-    status: 'pending'
-  }
+    status: "pending",
+  },
 ];
 
-export function PreprocessingTab({ datasetName, onVisualize }: PreprocessingTabProps) {
-  const [status, setStatus] = useState<PreprocessingStatus>('idle');
+export function PreprocessingTab({
+  datasetName,
+  onVisualize,
+}: PreprocessingTabProps) {
+  const [status, setStatus] = useState<PreprocessingStatus>("idle");
   const [sampleData, setSampleData] = useState<any[]>([]);
-  const [steps, setSteps] = useState<PreprocessingStep[]>(MOCK_STEPS);
+  const [steps, setSteps] = useState<PreprocessingStep[]>(INITIAL_STEPS);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
-  
-  const updateStepStatus = useCallback((index: number, newStatus: 'pending' | 'processing' | 'completed') => {
-    setSteps(prevSteps => 
-      prevSteps.map((step, i) => ({
-        ...step,
-        status: i === index ? newStatus : step.status
-      }))
-    );
-  }, []);
+  const [sseConnected, setSseConnected] = useState(false);
+  const [sseError, setSseError] = useState<string | null>(null);
+  const [eventSource, setEventSource] = useState<EventSource | null>(null);
 
-  const simulateProcessingStep = useCallback(async (index: number) => {
-    setCurrentStepIndex(index);
-    updateStepStatus(index, 'processing');
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    updateStepStatus(index, 'completed');
-  }, [updateStepStatus]);
-  
+  // Connect to SSE when a preprocessing is started
+  const connectToSse = useCallback(() => {
+    if (eventSource) {
+      eventSource.close();
+    }
+
+    console.log("Connecting to SSE at:", `${API_URL}api/sse-stream/`);
+
+    // Create a new connection with the hardcoded URL
+    const newEventSource = new EventSource(`${API_URL}api/sse-stream/`);
+    setEventSource(newEventSource);
+
+    // Set up event handlers
+    newEventSource.onopen = () => {
+      setSseConnected(true);
+      setSseError(null);
+      console.log("SSE connection established");
+    };
+
+    newEventSource.onerror = (error) => {
+      console.error("SSE connection error:", error);
+      setSseConnected(false);
+      setSseError("Connection error. Will try to reconnect...");
+
+      // Close the connection on error and reconnect after a delay
+      newEventSource.close();
+      setTimeout(connectToSse, 3000);
+    };
+
+    newEventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("SSE message received:", data);
+
+        // Update the step status
+        if (data.id && data.status) {
+          setSteps((prevSteps) =>
+            prevSteps.map((step) => {
+              if (step.id === data.id) {
+                return { ...step, status: data.status };
+              }
+              return step;
+            })
+          );
+
+          // Update the current step index
+          if (data.status === "processing") {
+            setCurrentStepIndex(data.id - 1);
+          }
+
+          // Check if all steps are completed
+          if (data.status === "completed" && data.id === steps.length) {
+            setStatus("completed");
+            // You can fetch sample data here if needed
+            setSampleData([
+              { id: 1, feature1: "Value 1", feature2: 42, target: 1 },
+              { id: 2, feature1: "Value 2", feature2: 28, target: 0 },
+              { id: 3, feature1: "Value 3", feature2: 35, target: 1 },
+            ]);
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing SSE message:", error);
+      }
+    };
+
+    return newEventSource;
+  }, [eventSource, steps.length]);
+
+  // Cleanup function for SSE connection
+  useEffect(() => {
+    return () => {
+      if (eventSource) {
+        console.log("Closing SSE connection");
+        eventSource.close();
+      }
+    };
+  }, [eventSource]);
+
   const handlePreprocess = async () => {
     try {
-      setStatus('processing');
+      setStatus("processing");
       setCurrentStepIndex(-1);
-      setSteps(MOCK_STEPS);
-      
-      // Process steps sequentially
-      for (let i = 0; i < steps.length; i++) {
-        await simulateProcessingStep(i);
-      }
-      
-      // Set sample data after all steps complete
-      setSampleData([
-        { id: 1, feature1: 'Value 1', feature2: 42, target: 1 },
-        { id: 2, feature1: 'Value 2', feature2: 28, target: 0 },
-        { id: 3, feature1: 'Value 3', feature2: 35, target: 1 },
-      ]);
-      
-      setStatus('completed');
+      setSteps(INITIAL_STEPS);
+
+      // Connect to SSE before starting preprocessing
+      connectToSse();
+
+      console.log(
+        "Sending preprocessing request to:",
+        `${API_URL}api/start-preprocessing/`
+      );
+
+      // Call the Django API to start preprocessing with hardcoded URL
+      const response = await fetch(`${API_URL}api/start-preprocessing/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dataset_id: datasetName,
+        }),
+      });
+
+      // The status updates will come through SSE
+      console.log("Preprocessing started successfully");
     } catch (error) {
-      console.error('Preprocessing failed:', error);
-      setStatus('error');
+      console.error("Preprocessing failed:", error);
+      setStatus("error");
+      if (eventSource) {
+        eventSource.close();
+      }
     }
   };
 
@@ -122,7 +203,7 @@ export function PreprocessingTab({ datasetName, onVisualize }: PreprocessingTabP
         className="glass-effect rounded-2xl p-8 mb-8 border border-primary/20 relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-chart-2/5 pointer-events-none" />
-        
+
         <div className="flex items-center gap-6 mb-8">
           <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center group relative">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-chart-1/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -143,11 +224,11 @@ export function PreprocessingTab({ datasetName, onVisualize }: PreprocessingTabP
           <Button
             size="lg"
             onClick={handlePreprocess}
-            disabled={status === 'processing'}
+            disabled={status === "processing"}
             className="gap-2 bg-gradient-to-r from-primary to-chart-1 hover:opacity-90 transition-opacity relative group overflow-hidden"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-            {status === 'processing' ? (
+            {status === "processing" ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <Wand2 className="h-5 w-5" />
@@ -155,12 +236,14 @@ export function PreprocessingTab({ datasetName, onVisualize }: PreprocessingTabP
             <span className="relative z-10">Start Preprocessing</span>
           </Button>
 
-          {status === 'completed' && (
+          {status === "completed" && (
             <>
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => {/* Implement download logic */}}
+                onClick={() => {
+                  /* Implement download logic */
+                }}
                 className="gap-2 border-chart-2/30 hover:border-chart-2/50 transition-colors relative group overflow-hidden"
               >
                 <div className="absolute inset-0 bg-chart-2/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -181,13 +264,30 @@ export function PreprocessingTab({ datasetName, onVisualize }: PreprocessingTabP
             </>
           )}
         </div>
+
+        {/* Connection status indicator */}
+        {status === "processing" && (
+          <div className="mt-4 text-sm">
+            {sseConnected ? (
+              <p className="text-green-500 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                Connected to server
+              </p>
+            ) : (
+              <p className="text-amber-500 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+                {sseError || "Connecting to server..."}
+              </p>
+            )}
+          </div>
+        )}
       </motion.div>
 
       <AnimatePresence>
-        {status === 'processing' && (
+        {status === "processing" && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
+            animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="space-y-4 mb-8"
           >
@@ -196,7 +296,7 @@ export function PreprocessingTab({ datasetName, onVisualize }: PreprocessingTabP
                 key={step.id}
                 step={step}
                 isActive={index === currentStepIndex}
-                isCompleted={index < currentStepIndex}
+                isCompleted={step.status === "completed"}
               />
             ))}
           </motion.div>
@@ -204,7 +304,7 @@ export function PreprocessingTab({ datasetName, onVisualize }: PreprocessingTabP
       </AnimatePresence>
 
       <AnimatePresence>
-        {status === 'completed' && sampleData.length > 0 && (
+        {status === "completed" && sampleData.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

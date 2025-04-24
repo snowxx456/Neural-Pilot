@@ -16,11 +16,91 @@ import glob
 import tempfile
 from model.search.groq_client import search_kaggle_datasets, format_size
 from model.modeltraining.modeltraining import AdvancedMLPipeline
-from rest_framework import viewsets
-
+import time
+from django.http import StreamingHttpResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+import threading
+from django.http import JsonResponse
+preprocessing_steps_lock = threading.Lock()
 
 
 logger = logging.getLogger(__name__)
+
+preprocessing_steps = {
+    1: {"status": "pending"},
+    2: {"status": "pending"},
+    3: {"status": "pending"},
+    4: {"status": "pending"},
+    5: {"status": "pending"}
+}
+import copy
+
+def event_stream():
+    """Generate SSE data"""
+    last_sent = copy.deepcopy(preprocessing_steps)  # Changed to deepcopy
+    
+    while True:
+        for step_id in preprocessing_steps:
+            current = preprocessing_steps[step_id]
+            last = last_sent[step_id]
+            
+            if current["status"] != last["status"]:
+                data = json.dumps({
+                    "id": step_id,
+                    "status": current["status"]
+                })
+                yield f"data: {data}\n\n"
+                last_sent[step_id] = copy.deepcopy(current)  # Deepcopy update
+        
+        time.sleep(0.1)  # Faster polling
+
+@csrf_exempt
+def sse_stream(request):
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+    return response
+
+def update_step_status(step_id, status):
+    with preprocessing_steps_lock:
+        preprocessing_steps[step_id]["status"] = status
+
+@csrf_exempt
+def start_preprocessing(request):
+    # Start preprocessing in a separate thread
+    thread = threading.Thread(target=run_preprocessing_pipeline)
+    thread.daemon = True
+    thread.start()
+    return JsonResponse({"status": "started"})
+
+# In views.py
+def run_preprocessing_pipeline():
+    # Step 1: Loading Dataset
+    update_step_status(1, "processing")
+    time.sleep(2)
+    update_step_status(1, "completed")
+
+    # Step 2: Handling Index Columns (NEW)
+    update_step_status(2, "processing")
+    time.sleep(1)
+    update_step_status(2, "completed")
+
+    # Step 3: Handling Missing Values
+    update_step_status(3, "processing")
+    time.sleep(3)
+    update_step_status(3, "completed")
+
+    # Step 4: Handling Outliers
+    update_step_status(4, "processing")
+    time.sleep(2)
+    update_step_status(4, "completed")
+
+    # Step 5: Removing Duplicate Columns
+    update_step_status(5, "processing")
+    time.sleep(1)
+    update_step_status(5, "completed")
+
 
 @api_view(['GET'])
 def health_check(request):
