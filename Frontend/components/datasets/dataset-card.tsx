@@ -7,20 +7,22 @@ import { Download, ExternalLink, FileText, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import axios from "axios";
-import { useToast } from "@/hooks/use-toast"; // Updated import path
+import { useToast } from "@/hooks/use-toast";
 
 interface DatasetCardProps {
   dataset: Dataset;
   onClick: () => void;
 }
+const API = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8000/";
 
 export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
   const { toast } = useToast();
 
   const handleDownload = async (
     e: React.MouseEvent<HTMLButtonElement>,
-    dataset: Dataset // Replace with the actual type if you're using TypeScript
+    dataset: Dataset
   ) => {
     e.stopPropagation();
     setIsLoading(true);
@@ -29,7 +31,7 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
       console.log("Attempting to download dataset:", dataset.id);
 
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/dataset/download/",
+        `${API}api/dataset/download/`,
         {
           datasetRef: dataset.id,
         },
@@ -74,6 +76,59 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
     }
   };
 
+  const handleSelect = async (
+    e: React.MouseEvent<HTMLButtonElement>,
+    dataset: Dataset
+  ) => {
+    e.stopPropagation();
+    setIsSelecting(true);
+
+    try {
+      console.log("Selecting dataset:", dataset.id);
+
+      // Fetch the dataset from Kaggle and store it in the backend
+      const response = await axios.post(
+        `${API}api/dataset/select/`,
+        {
+          datasetRef: dataset.id,
+          datasetUrl: dataset.externalLink,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        // Create the dataset info object
+        const datasetInfo = {
+          id: dataset.id,
+          name: dataset.title,
+          timestamp: new Date().toISOString(),
+        };
+
+        // Replace any existing dataset in local storage
+        localStorage.setItem("selectedDataset", JSON.stringify(datasetInfo));
+
+        toast({
+          title: "Dataset Selected",
+          description:
+            "Dataset has been successfully imported to your workspace",
+        });
+      }
+    } catch (error: any) {
+      console.error("Selection error:", error);
+      toast({
+        title: "Selection Failed",
+        description: error.message || "Failed to select dataset",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSelecting(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -115,13 +170,20 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
             variant="outline"
             size="sm"
             className="flex-1 gap-1.5 group/btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(dataset.externalLink, "_blank");
-            }}
+            onClick={(e) => handleSelect(e, dataset)}
+            disabled={isSelecting}
           >
-            <ExternalLink className="h-4 w-4 group-hover/btn:text-chart-1 transition-colors" />
-            <span>Select</span>
+            {isSelecting ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                <span>Selecting...</span>
+              </>
+            ) : (
+              <>
+                <ExternalLink className="h-4 w-4 group-hover/btn:text-chart-1 transition-colors" />
+                <span>Select</span>
+              </>
+            )}
           </Button>
 
           <Button
