@@ -1,5 +1,5 @@
 from django.urls import path
-from api.views import health_check, upload_dataset, get_dataset, data_cleaning, search_dataset, model_training , select_dataset, download_dataset, PreprocessingStepViewSet
+from api.views import health_check, upload_dataset, get_dataset, data_cleaning, search_dataset, model_training , select_dataset, download_dataset
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -12,8 +12,6 @@ urlpatterns = [
     path('api/dataset/select/', select_dataset, name='select_dataset'),
     path('api/dataset/download/', download_dataset, name='download_dataset'),
     path('api/model_training/',model_training),  # Note the trailing slash
-    path('api/steps/', PreprocessingStepViewSet.as_view({'get': 'list'}), name='steps-list'),
-    path('api/steps/<int:step_id>/status/', PreprocessingStepViewSet.as_view({'post': 'update_status'}), name='update-status'),
 ]
 
 # Only enable this in development!
