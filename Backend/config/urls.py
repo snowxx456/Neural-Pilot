@@ -1,5 +1,5 @@
 from django.urls import path
-from api.views import health_check, upload_dataset, get_dataset, search_dataset, model_training , select_dataset, download_dataset, sse_stream, start_preprocessing
+from api.views import health_check, upload_dataset, get_dataset, search_dataset, model_training , select_dataset, download_dataset, sse_stream, start_preprocessing, select_dataset
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/model_training/',model_training),  # Note the trailing slash
     path('api/sse-stream/', sse_stream, name='sse_stream'),
     path('api/start-preprocessing/', start_preprocessing, name='start_preprocessing'),  # Note the trailing slash
+    path('api/dataset/select/', select_dataset, name='select_dataset'),  # Note the trailing slash
 ]
 
 # Only enable this in development!
