@@ -77,12 +77,41 @@ def start_preprocessing(request,id):
 
 # In views.py
 def run_preprocessing_pipeline(id):
-    # Step 1: Loading Dataset
+    
     
     update_step_status(1, "processing")
+    # Step 1: Loading Dataset
     dataset = Dataset.objects.get(id=id)
-    data = dataset.file.path
-    agent = CreateAgent(data=data)
+    
+    # Get the absolute file path
+    import os
+    from django.conf import settings
+    
+    # If using a relative media path stored in database
+    if dataset.file.name.startswith('/'):
+        # Remove leading slash if present
+        file_path = dataset.file.name.lstrip('/')
+    else:
+        file_path = dataset.file.name
+        
+    # Get the full path
+    full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+    
+    # Print for debugging
+    print(f"Looking for file at: {full_path}")
+    
+    # Check if file exists
+    if not os.path.exists(full_path):
+        print(f"File not found at: {full_path}")
+        # Try the original path just in case
+        if os.path.exists(dataset.file.url):
+            full_path = dataset.file.url
+            print(f"Found file at original path: {full_path}")
+        else:
+            raise FileNotFoundError(f"Could not find file at {full_path} or {dataset.file.url}")
+    
+    print(f"Dataset URL: {full_path}")
+    agent = CreateAgent(full_path)
     update_step_status(1, "completed")
 
     # Step 2: Handling Index Columns (NEW)
