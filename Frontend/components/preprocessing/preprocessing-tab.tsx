@@ -79,6 +79,23 @@ export function PreprocessingTab({
   const [sseConnected, setSseConnected] = useState(false);
   const [sseError, setSseError] = useState<string | null>(null);
   const [eventSource, setEventSource] = useState<EventSource | null>(null);
+  const [datasetId, setDatasetId] = useState<any | null>(null);
+  const [name, setDatasetName] = useState<string>("");
+
+  // Load dataset info from localStorage once on component mount
+  useEffect(() => {
+    const storedData = localStorage.getItem("selectedDataset");
+    if (storedData) {
+      try {
+        const data = JSON.parse(storedData);
+        setDatasetId(data.id);
+        setDatasetName(data.name);
+        console.log("Dataset ID:", data.id);
+      } catch (error) {
+        console.error("Error parsing dataset from localStorage:", error);
+      }
+    }
+  }, []);
 
   // Connect to SSE when a preprocessing is started
   const connectToSse = useCallback(() => {
@@ -168,21 +185,28 @@ export function PreprocessingTab({
       // Connect to SSE before starting preprocessing
       connectToSse();
 
+      if (!datasetId) {
+        console.error("No dataset selected. Please select a dataset first.");
+        setStatus("error");
+        return;
+      }
+
       console.log(
         "Sending preprocessing request to:",
-        `${API_URL}api/start-preprocessing/`
+        `${API_URL}api/start-preprocessing/${datasetId}/`
       );
 
-      // Call the Django API to start preprocessing with hardcoded URL
-      const response = await fetch(`${API_URL}api/start-preprocessing/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dataset_id: localStorage.getItem("selectedDataset"),
-        }),
-      });
+      // Call the Django API to start preprocessing with ID in URL path
+      const response = await fetch(
+        `${API_URL}api/start-preprocessing/${datasetId}/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          // No need to include id in body since it's in the URL path
+        }
+      );
 
       // The status updates will come through SSE
       console.log("Preprocessing started successfully");
@@ -215,7 +239,7 @@ export function PreprocessingTab({
             </h2>
             <p className="text-lg text-muted-foreground flex items-center gap-2">
               <Database className="h-5 w-5" />
-              {datasetName}
+              {name || datasetName}
             </p>
           </div>
         </div>

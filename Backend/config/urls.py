@@ -12,7 +12,7 @@ urlpatterns = [
     path('api/dataset/download/', download_dataset, name='download_dataset'),
     path('api/model_training/',model_training),  # Note the trailing slash
     path('api/sse-stream/', sse_stream, name='sse_stream'),
-    path('api/start-preprocessing/', start_preprocessing, name='start_preprocessing'),  # Note the trailing slash
+    path('api/start-preprocessing/<int:id>/', start_preprocessing, name='start_preprocessing'),  # Note the trailing slash
     path('api/dataset/select/', select_dataset, name='select_dataset'),  # Note the trailing slash
 ]
 

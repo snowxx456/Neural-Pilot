@@ -78,11 +78,11 @@ def start_preprocessing(request,id):
 # In views.py
 def run_preprocessing_pipeline(id):
     # Step 1: Loading Dataset
+    
+    update_step_status(1, "processing")
     dataset = Dataset.objects.get(id=id)
     data = dataset.file.path
     agent = CreateAgent(data=data)
-    update_step_status(1, "processing")
-    agent.load_data()
     update_step_status(1, "completed")
 
     # Step 2: Handling Index Columns (NEW)
