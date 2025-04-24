@@ -4,7 +4,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework import status
 from django.conf import settings
 from django.http import FileResponse, HttpResponse
-from .models import Dataset, PreprocessingStep
+from .models import Dataset
 import os
 import json
 import pandas as pd
@@ -15,28 +15,95 @@ import shutil
 import glob
 import tempfile
 from model.search.groq_client import search_kaggle_datasets, format_size
-from model.modeltraining.modeltraining import AdvancedMLPipeline
-from .serializers import PreprocessingStepSerializer
-from rest_framework import viewsets
-
-class PreprocessingStepViewSet(viewsets.ViewSet):
-    def list(self, request):
-        queryset = PreprocessingStep.objects.all().order_by('step_id')
-        serializer = PreprocessingStepSerializer(queryset, many=True)
-        return Response(serializer.data)
-    
-    def update_status(self, request, step_id):
-        try:
-            step = PreprocessingStep.objects.get(step_id=step_id)
-            step.status = request.data.get('status', step.status)
-            step.save()
-            serializer = PreprocessingStepSerializer(step)
-            return Response(serializer.data)
-        except PreprocessingStep.DoesNotExist:
-            return Response({'error': 'Step not found'}, status=404)
+import time
+from django.http import StreamingHttpResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+import threading
+from django.http import JsonResponse
+preprocessing_steps_lock = threading.Lock()
+from model.data_cleaning.llm.agent import CreateAgent
 
 
 logger = logging.getLogger(__name__)
+
+preprocessing_steps = {
+    1: {"status": "pending"},
+    2: {"status": "pending"},
+    3: {"status": "pending"},
+    4: {"status": "pending"},
+    5: {"status": "pending"}
+}
+import copy
+
+def event_stream():
+    """Generate SSE data"""
+    last_sent = copy.deepcopy(preprocessing_steps)  # Changed to deepcopy
+    
+    while True:
+        for step_id in preprocessing_steps:
+            current = preprocessing_steps[step_id]
+            last = last_sent[step_id]
+            
+            if current["status"] != last["status"]:
+                data = json.dumps({
+                    "id": step_id,
+                    "status": current["status"]
+                })
+                yield f"data: {data}\n\n"
+                last_sent[step_id] = copy.deepcopy(current)  # Deepcopy update
+        
+        time.sleep(0.1)  # Faster polling
+
+@csrf_exempt
+def sse_stream(request):
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+    return response
+
+def update_step_status(step_id, status):
+    with preprocessing_steps_lock:
+        preprocessing_steps[step_id]["status"] = status
+
+@csrf_exempt
+def start_preprocessing(request,id):
+    # Start preprocessing in a separate thread
+    thread = threading.Thread(target=run_preprocessing_pipeline, args=(id,))
+    thread.daemon = True
+    thread.start()
+    return JsonResponse({"status": "started"})
+
+# In views.py
+def run_preprocessing_pipeline(id):
+    # Step 1: Loading Dataset
+    dataset = Dataset.objects.get(id=id)
+    data = dataset.file.path
+    agent = CreateAgent(data=data)
+    update_step_status(1, "processing")
+    agent.load_data()
+    update_step_status(1, "completed")
+
+    # Step 2: Handling Index Columns (NEW)
+    update_step_status(2, "processing")
+    agent.handle_index_columns()
+    update_step_status(2, "completed")
+
+    # Step 3: Handling Missing Values
+    update_step_status(3, "processing")
+    agent.handle_missing_values()
+    update_step_status(3, "completed")
+
+    # Step 4: Handling Outliers
+    update_step_status(4, "processing")
+    agent.handle_outliers()
+    update_step_status(4, "completed")
+
+    # Step 5: Removing Duplicate Columns
+    update_step_status(5, "processing")
+    agent.handle_duplicates()
+    update_step_status(5, "completed")
+
 
 @api_view(['GET'])
 def health_check(request):

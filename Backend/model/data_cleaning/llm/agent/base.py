@@ -1,4 +1,4 @@
-from llm.config import Config, set_production
+from model.data_cleaning.llm.config import Config, set_production
 import pandas as pd
 
 verbose = set_production()

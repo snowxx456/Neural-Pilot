@@ -9,32 +9,32 @@ from groq import Groq
 load_dotenv()
 
 # Configuration - Set your default file path here
-DEFAULT_FILE_PATH = r"D:\projects\Nerual-Pilot\Backend\model\modeltraining\cleaned_data.csv"  # Change this to your default dataset path
+DEFAULT_FILE_PATH = "AUTOML\c.csv"  # Change this to your default dataset path
 
 class TargetColumnRecommender:
-    def __init__(self):
+    def __init__(self,file_path):
         self.df = None
         self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
         self.target_input = None
         self.problem_type = None
         self.recommendation_reason = None
+        self.file_path = file_path
 
-    def load_data(self, file_path):
+    def load_data(self):
         """Load and validate data from file."""
         try:
-            if file_path.endswith('.csv'):
-                self.df = pd.read_csv(file_path)
-            elif file_path.endswith(('.xls', '.xlsx')):
-                self.df = pd.read_excel(file_path)
+            if self.file_path.endswith('.csv'):
+                self.df = pd.read_csv(self.file_path)
+            elif self.file_path.endswith(('.xls', '.xlsx')):
+                self.df = pd.read_excel(self.file_path)
             else:
-                self.df = pd.read_csv(file_path)  # Try CSV as default
+                self.df = pd.read_csv(self.file_path)  # Try CSV as default
 
             # Clean column names
             self.df.columns = [col.strip().replace(' ', '_').replace('(', '').replace(')', '') 
                                for col in self.df.columns]
 
             print(f"\nData loaded successfully: {self.df.shape[0]} rows, {self.df.shape[1]} columns")
-            self._validate_data()
             return True
 
         except Exception as e:
@@ -144,8 +144,6 @@ class TargetColumnRecommender:
             self.problem_type = result['problem_type']
             self.recommendation_reason = result['reason']
 
-            return result
-
         except Exception as e:
             print(f"\nError analyzing data with Groq LLM: {str(e)}")
             return None
@@ -159,23 +157,31 @@ class TargetColumnRecommender:
         if self.df[col].nunique() == len(self.df) and self.df[col].dtype in ['int64', 'float64']:
             return False  # Probably an ID column
         return True
+    def get_target_column(self):
+        """Get the recommended target column."""
+        return self.target_input if self.target_input else None
+    def get_recommendation_reason(self):
+        """Get the recommendation reason."""
+        return self.recommendation_reason if self.recommendation_reason else None
+    def get_file_path(self):
+        """Get the file path."""
+        return self.file_path if self.file_path else None
 
-def initialize(file_path=DEFAULT_FILE_PATH):
-    """Initialize and get target recommendation."""
-    recommender = TargetColumnRecommender()
-    if recommender.load_data(file_path):
-        result = recommender.analyze_for_target()
-        if result:
-            return {
-                'file_path': file_path,
-                'target_column': result['target_column'],
-                'problem_type': result['problem_type'],
-                'reason': result['reason']
-            }
-    return None
+# def initialize(file_path=DEFAULT_FILE_PATH):
+#     """Initialize and get target recommendation."""
+#     recommender = TargetColumnRecommender()
+#     if recommender.load_data(file_path):
+#         result = recommender.analyze_for_target()
+#         if result:
+#             return {
+#                 'file_path': file_path,
+#                 'target_column': result['target_column'],
+#                 'problem_type': result['problem_type'],
+#                 'reason': result['reason']
+#             }
+#     return None
 
-# Initialize and export variables
-config = initialize()
-file_path = config['file_path'] if config else DEFAULT_FILE_PATH
-target_column = config['target_column'] if config else None
-
+# # Initialize and export variables
+# config = initialize()
+# file_path = config['file_path'] if config else DEFAULT_FILE_PATH
+# target_column = config['target_column'] if config else None

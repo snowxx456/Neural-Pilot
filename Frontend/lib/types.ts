@@ -18,8 +18,6 @@ export interface Dataset {
   size?: string;
 }
 
-
-
 export type PreprocessingStatus = 'idle' | 'processing' | 'completed' | 'error';
 
 export interface PreprocessingStep {
