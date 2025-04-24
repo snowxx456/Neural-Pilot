@@ -54,7 +54,17 @@ INSTALLED_APPS = [
     'rest_framework',  # Add this line
     'api',  # Your custom app
     'corsheaders',
+    'channels',
 ]
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
@@ -97,8 +107,8 @@ TEMPLATES = [
         },
     },
 ]
-
-WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+#WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Database
