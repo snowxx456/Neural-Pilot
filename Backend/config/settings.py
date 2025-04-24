@@ -54,7 +54,6 @@ INSTALLED_APPS = [
     'rest_framework',  # Add this line
     'api',  # Your custom app
     'corsheaders',
-    'channels',
 ]
 
 CHANNEL_LAYERS = {
