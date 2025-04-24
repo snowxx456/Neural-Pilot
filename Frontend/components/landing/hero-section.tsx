@@ -95,7 +95,7 @@ export function HeroSection() {
               <div className="w-14 h-14 rounded-full bg-chart-1/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Zap className="w-7 h-7 text-chart-1" />
               </div>
-              <h3 className="text-xl font-medium mb-3 text-glow">Neural Architecture Search</h3>
+              <h3 className="text-xl font-medium mb-3 text">Neural Architecture Search</h3>
               <p className="text-muted-foreground">Automated model architecture optimization using state-of-the-art AI techniques</p>
             </motion.div>
             
@@ -107,7 +107,7 @@ export function HeroSection() {
               <div className="w-14 h-14 rounded-full bg-chart-2/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Microscope className="w-7 h-7 text-chart-2" />
               </div>
-              <h3 className="text-xl font-medium mb-3 text-glow">Hyperparameter Optimization</h3>
+              <h3 className="text-xl font-medium mb-3 text">Hyperparameter Optimization</h3>
               <p className="text-muted-foreground">Advanced Bayesian optimization for finding optimal model configurations</p>
             </motion.div>
             
@@ -119,7 +119,7 @@ export function HeroSection() {
               <div className="w-14 h-14 rounded-full bg-chart-4/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <BarChart3 className="w-7 h-7 text-chart-4" />
               </div>
-              <h3 className="text-xl font-medium mb-3 text-glow">Automated Feature Engineering</h3>
+              <h3 className="text-xl font-medium mb-3 text">Automated Feature Engineering</h3>
               <p className="text-muted-foreground">Intelligent feature selection and transformation using deep learning</p>
             </motion.div>
           </motion.div>
