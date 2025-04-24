@@ -15,8 +15,7 @@ urlpatterns = [
     path('api/visualization/<int:dataset_id>', data_visualization, name='data_visualization'),
     path('api/start-preprocessing/', start_preprocessing, name='start_preprocessing'),  # Note the trailing slash
     path('api/dataset/select/', select_dataset, name='select_dataset'),  
-    
-     path('api/visualization/<int:dataset_id>', data_visualization, name='data_visualization'),
+    path('api/visualization/<int:dataset_id>', data_visualization, name='data_visualization'),
 ]
 
 # Only enable this in development!
