@@ -2,14 +2,16 @@
 
 import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { FileText, Upload, AlertCircle, Brain, ChartBar, Database } from 'lucide-react'
+import { FileText, Upload, AlertCircle, Brain, ChartBar, Database, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { DatasetType } from '@/lib/types'
 import { analyzeCSV } from '@/lib/dataService'
+import { Button } from '@/components/ui/button'
+
 
 interface FileUploaderProps {
+  datasetId: string;
   onDatasetReady: (dataset: DatasetType) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
@@ -18,6 +20,7 @@ interface FileUploaderProps {
 }
 
 export function FileUploader({ 
+  datasetId,
   onDatasetReady, 
   isLoading, 
   setIsLoading, 
@@ -25,14 +28,18 @@ export function FileUploader({
   setError 
 }: FileUploaderProps) {
   const [progress, setProgress] = useState(0)
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
 
-  const processFile = async (file: File) => {
-    setIsLoading(true)
-    setError(null)
-    setProgress(10)
-    
+  const startVisualization = async () => {
+    if (!datasetId) {
+      setError('No dataset ID provided')
+      return
+    }
+
     try {
+      setIsLoading(true)
+      setError(null)
+      setProgress(10)
+      
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           if (prev >= 90) {
@@ -42,36 +49,29 @@ export function FileUploader({
           return prev + 10
         })
       }, 300)
-      
-      const result = await analyzeCSV(file)
+
+      const response = await fetch(`/api/visualization/${datasetId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
       clearInterval(progressInterval)
+      
+      if (!response.ok) {
+        throw new Error('Failed to start visualization')
+      }
+
+      const data = await response.json()
       setProgress(100)
-      onDatasetReady(result)
+      onDatasetReady(data)
     } catch (err) {
-      setError(`Failed to process file: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Failed to start visualization: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsLoading(false)
     }
   }
-  
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (file && file.type === 'text/csv') {
-      setUploadedFile(file)
-      processFile(file)
-    } else {
-      setError('Please upload a valid CSV file')
-    }
-  }, [onDatasetReady, setError, setIsLoading])
-  
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'text/csv': ['.csv']
-    },
-    maxFiles: 1,
-    disabled: isLoading
-  })
   
   return (
     <div className="w-full max-w-3xl mx-auto">
@@ -81,7 +81,7 @@ export function FileUploader({
           <h2 className="text-3xl font-bold">AutoML Data Visualization</h2>
         </div>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          Upload your dataset and let our AI analyze and create intelligent visualizations. 
+          Let our AI analyze and create intelligent visualizations for your dataset. 
           Our system automatically detects patterns, relationships, and insights in your data.
         </p>
       </div>
@@ -120,63 +120,47 @@ export function FileUploader({
       
       {error && (
         <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
       
-      <Card 
-        className={`upload-area glass neon-border ${
-          isDragActive ? 'border-primary/50 bg-primary/5' : ''
-        }`}
-      >
-        <CardContent className="p-0">
-          <div
-            {...getRootProps()}
-            className={`flex flex-col items-center justify-center p-12 text-center cursor-pointer ${
-              isLoading ? 'opacity-50 pointer-events-none' : ''
-            }`}
+      <Card className="glass neon-border">
+        <CardContent className="flex flex-col items-center justify-center p-10 text-center">
+          <div className="w-full text-center mb-4">
+            <h3 className="text-lg font-medium mb-2">Dataset Ready for Visualization</h3>
+            <p className="text-sm text-muted-foreground">
+              Click the button below to analyze and visualize dataset #{datasetId}
+            </p>
+          </div>
+          
+          <Button
+            className="w-full glass neon-border bg-primary/10 hover:bg-primary/20"
+            onClick={startVisualization}
+            disabled={isLoading || !datasetId}
           >
-            <input {...getInputProps()} />
-            
-            <div className="mb-6 rounded-full bg-primary/10 p-6">
-              {isLoading ? (
-                <FileText className="h-12 w-12 text-primary animate-pulse" />
-              ) : (
-                <Upload className="h-12 w-12 text-primary" />
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <p className="text-lg font-medium">
-                {isDragActive
-                  ? "Drop your dataset here"
-                  : isLoading
-                  ? "Analyzing your data..."
-                  : "Drag & drop your dataset here"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {isLoading
-                  ? uploadedFile?.name
-                  : "Upload a CSV file to begin your data exploration journey"}
-              </p>
-            </div>
-            
-            {isLoading && (
-              <div className="w-full mt-8 space-y-2 max-w-md">
-                <Progress value={progress} className="h-2" />
-                <p className="text-sm text-muted-foreground">
-                  {progress < 30 
-                    ? "Reading and validating data..." 
-                    : progress < 60 
-                    ? "Detecting patterns and relationships..." 
-                    : progress < 90 
-                    ? "Generating intelligent visualizations..." 
-                    : "Finalizing analysis..."}
-                </p>
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing... {progress}%
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <ChartBar className="h-4 w-4" />
+                Start Data Visualization
               </div>
             )}
-          </div>
+          </Button>
+          
+          {progress > 0 && progress < 100 && (
+            <div className="w-full mt-4">
+              <div className="w-full bg-secondary/20 rounded-full h-2">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

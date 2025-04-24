@@ -19,13 +19,14 @@ export default function Home() {
         {!dataset ? (
           <div className="flex items-center justify-center h-[70vh]">
             <FileUploader 
+              datasetId="default-dataset-id" // Replace with appropriate logic to generate or fetch datasetId
               onDatasetReady={setDataset}
               isLoading={isLoading}
               setIsLoading={setIsLoading}
               error={error}
               setError={setError}
             />
-          </div>
+          </div>            
         ) : (
           <VisualizationDashboard 
             dataset={dataset} 
