@@ -7,7 +7,7 @@ dotenv.config()
 export async function GET() {
   try {
     // Fetch confusion matrix data from Django API
-    const djangoApiUrl = process.env.SERVER_URL + '/api/confusion-matrix/';
+    const djangoApiUrl = process.env.SERVER_URL + '/api/confusionmatrix/';
     
     const response = await fetch(djangoApiUrl, {
       method: 'GET',
