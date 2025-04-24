@@ -7,11 +7,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { BrainCircuit, Database, LineChart, Microscope, MessageSquareCode } from 'lucide-react';
 
 const navItems = [
-  {
-    label: 'Search Dataset',
-    href: '/search',
-    icon: Database
-  },
+  
   {
     label: 'Preprocessing',
     href: '/preprocessing',

@@ -37,7 +37,7 @@ export function HeroSection() {
       <div className="absolute inset-0 hexagon-pattern opacity-20" />
       
       <motion.div 
-        className="container px-4 mx-auto relative z-10"
+        className="container px-4 mx-auto relative z-10 py-12"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -47,7 +47,7 @@ export function HeroSection() {
             variants={itemVariants}
             className="inline-flex items-center gap-2 glass-effect px-6 py-3 rounded-full mb-8"
           >
-            <Network className="w-5 h-5 text-chart-1 animate-pulse-slow" />
+            <Network className="w-5 h-12 text-chart-1 animate-pulse-slow" />
             <span className="text-sm font-medium bg-clip-text text-transparent bg-gradient-to-r from-chart-1 to-chart-2">
               Auto Machine Learning Pipeline
             </span>

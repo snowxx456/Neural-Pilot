@@ -111,3 +111,22 @@ export interface ConfusionMatrixData {
   matrix: number[][]
   labels: string[]
 }
+
+export interface FileUploadResponse {
+  success: boolean;
+  fileId?: string;
+  error?: string;
+  metadata?: {
+    rows: number;
+    columns: number;
+    size: string;
+  };
+}
+
+export interface ProcessingStep {
+  id: string;
+  name: string;
+  description: string;
+  completed: boolean;
+  current: boolean;
+}

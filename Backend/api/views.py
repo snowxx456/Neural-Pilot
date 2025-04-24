@@ -22,6 +22,7 @@ import json
 import threading
 from django.http import JsonResponse
 preprocessing_steps_lock = threading.Lock()
+from model.data_cleaning.llm.agent import CreateAgent
 
 
 logger = logging.getLogger(__name__)
@@ -66,38 +67,41 @@ def update_step_status(step_id, status):
         preprocessing_steps[step_id]["status"] = status
 
 @csrf_exempt
-def start_preprocessing(request):
+def start_preprocessing(request,id):
     # Start preprocessing in a separate thread
-    thread = threading.Thread(target=run_preprocessing_pipeline)
+    thread = threading.Thread(target=run_preprocessing_pipeline, args=(id,))
     thread.daemon = True
     thread.start()
     return JsonResponse({"status": "started"})
 
 # In views.py
-def run_preprocessing_pipeline():
+def run_preprocessing_pipeline(id):
     # Step 1: Loading Dataset
+    dataset = Dataset.objects.get(id=id)
+    data = dataset.file.path
+    agent = CreateAgent(data=data)
     update_step_status(1, "processing")
-    time.sleep(2)
+    agent.load_data()
     update_step_status(1, "completed")
 
     # Step 2: Handling Index Columns (NEW)
     update_step_status(2, "processing")
-    time.sleep(1)
+    agent.handle_index_columns()
     update_step_status(2, "completed")
 
     # Step 3: Handling Missing Values
     update_step_status(3, "processing")
-    time.sleep(3)
+    agent.handle_missing_values()
     update_step_status(3, "completed")
 
     # Step 4: Handling Outliers
     update_step_status(4, "processing")
-    time.sleep(2)
+    agent.handle_outliers()
     update_step_status(4, "completed")
 
     # Step 5: Removing Duplicate Columns
     update_step_status(5, "processing")
-    time.sleep(1)
+    agent.handle_duplicates()
     update_step_status(5, "completed")
 
 
@@ -131,7 +135,6 @@ def upload_dataset(request):
         return Response({
             "id": dataset.id,
             "name": dataset.name,
-            "path": dataset.file.url
         }, status=status.HTTP_201_CREATED)
 
         
@@ -149,89 +152,6 @@ def get_dataset(request, dataset_id):
         }, status=status.HTTP_200_OK)
     except Dataset.DoesNotExist:
         return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
-    
-@api_view(['GET'])
-def data_cleaning(request, dataset_id):
-    try:
-        dataset = Dataset.objects.get(id=dataset_id)
-        
-        # Create cleaned file path using MEDIA_ROOT
-        cleaned_file_name = f"cleaned_{os.path.basename(dataset.file.name)}"
-        cleaned_file_path = os.path.join(settings.MEDIA_ROOT, 'cleaned_datasets', cleaned_file_name)
-
-        # Create directory structure if needed
-        os.makedirs(os.path.dirname(cleaned_file_path), exist_ok=True)
-                
-        # Get the full path of the file
-        file_path = dataset.file.path
-        
-        # Create LLM cleaning agent
-        cleaning_agent = LLMCLEANINGAGENT(
-            input_file=file_path,  # Use the file path
-            llm_model="deepseek-r1-distill-llama-70b",  # You can make this configurable
-            cleaning_strategy="auto"
-        )
-        
-        # Run the cleaning pipeline
-        cleaning_result = cleaning_agent.run()
-        
-        if not cleaning_result:
-            return Response({"error": "Data cleaning failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # Save the cleaned dataframe to the new file
-        cleaning_result["cleaned_df"].to_csv(cleaned_file_path, index=False)
-        
-        # Create a results object
-        results = {
-            "message": "Data cleaning successful",
-            "dataset": {
-                "id": dataset.id,
-                "name": dataset.name,
-                "original_path": dataset.file.url,
-                "cleaned_path": f"/media/cleaned_{os.path.basename(dataset.file.name)}"
-            },
-            "cleaning_stats": {
-                "original_rows": len(cleaning_agent.df),
-                "cleaned_rows": len(cleaning_result["cleaned_df"]),
-                "missing_values_before": int(cleaning_agent.df.isnull().sum().sum()),
-                "missing_values_after": int(cleaning_result["cleaned_df"].isnull().sum().sum())
-            }
-        }
-        
-        
-        # Save suggestions to a file
-        suggestions_dir = os.path.join(settings.MEDIA_ROOT, 'suggestions')
-        os.makedirs(suggestions_dir, exist_ok=True)  # Create directory if needed
-        suggestions_path = os.path.join(suggestions_dir, f'suggestions_{dataset_id}.json')
-
-        # Save cleaning code to a file 
-        code_dir = os.path.join(settings.MEDIA_ROOT, 'cleaning_codes')
-        os.makedirs(code_dir, exist_ok=True)
-        code_path = os.path.join(code_dir, f'cleaning_code_{dataset_id}.py')
-
-        # Write files
-        with open(suggestions_path, 'w') as f:
-            # Convert suggestions to JSON string if needed
-            if isinstance(cleaning_result["suggestions"], dict):
-                json.dump(cleaning_result["suggestions"], f, indent=2)
-            else:
-                f.write(cleaning_result["suggestions"])
-
-        with open(code_path, 'w') as f:
-            f.write(cleaning_result["cleaning_code"])
-
-        # Update response paths to use MEDIA_URL
-        results = {
-            "cleaning_suggestions_path": os.path.join(settings.MEDIA_URL, 'suggestions', f'suggestions_{dataset_id}.json'),
-            "cleaning_code_path": os.path.join(settings.MEDIA_URL, 'cleaning_codes', f'cleaning_code_{dataset_id}.py'),
-            }
-        
-        return Response(results, status=status.HTTP_200_OK)
-        
-    except Dataset.DoesNotExist:
-        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['POST'])
 def data_visualization(dataset_id):
