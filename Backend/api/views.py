@@ -23,6 +23,7 @@ import json
 import threading
 from django.http import JsonResponse
 preprocessing_steps_lock = threading.Lock()
+from model.data_cleaning.llm.agent import CreateAgent
 
 
 logger = logging.getLogger(__name__)
@@ -67,38 +68,41 @@ def update_step_status(step_id, status):
         preprocessing_steps[step_id]["status"] = status
 
 @csrf_exempt
-def start_preprocessing(request):
+def start_preprocessing(request,id):
     # Start preprocessing in a separate thread
-    thread = threading.Thread(target=run_preprocessing_pipeline)
+    thread = threading.Thread(target=run_preprocessing_pipeline, args=(id,))
     thread.daemon = True
     thread.start()
     return JsonResponse({"status": "started"})
 
 # In views.py
-def run_preprocessing_pipeline():
+def run_preprocessing_pipeline(id):
     # Step 1: Loading Dataset
+    dataset = Dataset.objects.get(id=id)
+    data = dataset.file.path
+    agent = CreateAgent(data=data)
     update_step_status(1, "processing")
-    time.sleep(2)
+    agent.load_data()
     update_step_status(1, "completed")
 
     # Step 2: Handling Index Columns (NEW)
     update_step_status(2, "processing")
-    time.sleep(1)
+    agent.handle_index_columns()
     update_step_status(2, "completed")
 
     # Step 3: Handling Missing Values
     update_step_status(3, "processing")
-    time.sleep(3)
+    agent.handle_missing_values()
     update_step_status(3, "completed")
 
     # Step 4: Handling Outliers
     update_step_status(4, "processing")
-    time.sleep(2)
+    agent.handle_outliers()
     update_step_status(4, "completed")
 
     # Step 5: Removing Duplicate Columns
     update_step_status(5, "processing")
-    time.sleep(1)
+    agent.handle_duplicates()
     update_step_status(5, "completed")
 
 

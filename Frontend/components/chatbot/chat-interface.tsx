@@ -7,6 +7,7 @@ import { ChatInput } from './chat-input';
 import { DatasetGrid } from '@/components/datasets/dataset-grid';
 import axios from 'axios';
 import { useToast } from '@/hooks/use-toast';
+const API = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8000';
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
@@ -34,7 +35,7 @@ export function ChatInterface() {
 
     try {
       // Call backend API to search datasets using Groq
-      const response = await axios.post('http://localhost:8000/api/search/', {
+      const response = await axios.post(`${API}api/search/`, {
         query: content
       });
 

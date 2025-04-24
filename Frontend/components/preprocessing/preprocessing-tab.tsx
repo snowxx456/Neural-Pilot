@@ -23,7 +23,7 @@ import { PreprocessingStatus, PreprocessingStep } from "@/lib/types";
 import { DataTable } from "./data-table";
 import { ProcessingStep } from "./processing-step";
 import { cn } from "@/lib/utils";
-const API_URL = "http://127.0.0.1:8000/";
+const API_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8000/";
 
 interface PreprocessingTabProps {
   datasetName: string;
