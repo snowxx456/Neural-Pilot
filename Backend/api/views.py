@@ -321,12 +321,14 @@ def select_dataset(request):
                     name=dataset_name,
                     file=uploaded_file
                 )
+                print(f"Dataset created: {dataset.id}")
+
                 
                 # Return the dataset information
                 return Response({
                     "id": dataset.id,
                     "name": dataset.name,
-                }, status=status.HTTP_201_CREATED)
+                }, status=status.HTTP_200_OK)
 
     except Exception as e:
         print(f"Selection error: {str(e)}")
