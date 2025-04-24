@@ -15,7 +15,6 @@ import shutil
 import glob
 import tempfile
 from model.search.groq_client import search_kaggle_datasets, format_size
-from model.modeltraining.modeltraining import AdvancedMLPipeline
 import time
 from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
