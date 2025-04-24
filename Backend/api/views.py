@@ -105,6 +105,12 @@ def run_preprocessing_pipeline(id):
     agent.handle_duplicates()
     update_step_status(5, "completed")
 
+#data visulaization 
+def data_visualization(id):
+    # Placeholder for data visualization logic
+    return JsonResponse({"message": "Data visualization logic goes here."})
+
+
 
 @api_view(['GET'])
 def health_check(request):
@@ -155,15 +161,40 @@ def get_dataset(request, dataset_id):
         return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
     
 @api_view(['POST'])
-def data_visualization(dataset_id):
+def data_visualization(request, dataset_id):
     try:
         # Get dataset from database
         dataset = Dataset.objects.get(id=dataset_id)
         file_path = dataset.file.path
+        
+        # Read the CSV file
         df = pd.read_csv(file_path)
-        # Perform data visualization here
+        
+        # Generate basic visualizations and statistics
+        visualizations = {
+            'dataset_info': {
+                'rows': len(df),
+                'columns': len(df.columns),
+                'memory_usage': df.memory_usage(deep=True).sum(),
+            },
+            'column_types': df.dtypes.to_dict(),
+            'missing_values': df.isnull().sum().to_dict(),
+            'numeric_stats': df.describe().to_dict(),
+            'correlations': df.corr().to_dict() if len(df.select_dtypes(include=['number']).columns) > 0 else {},
+        }
+
+        return Response(visualizations, status=status.HTTP_200_OK)
+
     except Dataset.DoesNotExist:
-        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Dataset not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to generate visualizations: {str(e)}"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['POST'])
 def search_dataset(request):
