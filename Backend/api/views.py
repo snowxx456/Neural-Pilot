@@ -135,7 +135,6 @@ def upload_dataset(request):
         return Response({
             "id": dataset.id,
             "name": dataset.name,
-            "path": dataset.file.url
         }, status=status.HTTP_201_CREATED)
 
         
