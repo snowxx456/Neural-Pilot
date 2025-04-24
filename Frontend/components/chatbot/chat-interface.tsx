@@ -7,7 +7,7 @@ import { ChatInput } from './chat-input';
 import { DatasetGrid } from '@/components/datasets/dataset-grid';
 import axios from 'axios';
 import { useToast } from '@/hooks/use-toast';
-const API = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:8000/';
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
