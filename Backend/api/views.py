@@ -23,6 +23,7 @@ import threading
 from django.http import JsonResponse
 preprocessing_steps_lock = threading.Lock()
 from model.data_cleaning.llm.agent import CreateAgent
+from django.core.files import File
 
 
 logger = logging.getLogger(__name__)
@@ -247,50 +248,6 @@ def model_training(request,id):
             "error": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@api_view(['POST'])
-def select_dataset(request):
-    try:
-        dataset_ref = request.data.get('datasetRef')
-        dataset_url = request.data.get('url')
-        
-        if not dataset_ref or not dataset_url:
-            return Response({
-                'error': 'Dataset reference and URL are required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Create directory if it doesn't exist
-        dataset_dir = os.path.join(settings.MEDIA_ROOT, 'datasets')
-        os.makedirs(dataset_dir, exist_ok=True)
-        
-        # Download file
-        response = requests.get(dataset_url)
-        response.raise_for_status()  # Raise exception for bad status codes
-        
-        file_path = os.path.join(dataset_dir, f'{dataset_ref}.csv')
-        
-        with open(file_path, 'wb') as f:
-            f.write(response.content)
-            
-        # Create Dataset model instance
-        dataset = Dataset.objects.create(
-            name=dataset_ref,
-            file=file_path
-        )
-            
-        return Response({
-            'message': 'Dataset selected successfully',
-            'dataset_id': dataset.id,
-            'file_path': file_path
-        }, status=status.HTTP_200_OK)
-        
-    except requests.RequestException as e:
-        return Response({
-            'error': f'Failed to download dataset: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    except Exception as e:
-        return Response({
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def download_dataset(request):
@@ -333,4 +290,79 @@ def download_dataset(request):
         print(f"Download error: {str(e)}")
         return Response({
             'error': f'An error occurred while processing the download: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def select_dataset(request):
+    try:
+        dataset_ref = request.data.get('datasetRef')
+        if not dataset_ref:
+            return Response({
+                'error': 'Dataset reference is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        print(f"Attempting to select dataset: {dataset_ref}")
+
+        # Step 1: Download using kagglehub (downloads to cache dir)
+        cache_dir = kagglehub.dataset_download(dataset_ref)
+        print(f"Downloaded to cache: {cache_dir}")
+
+        # Step 2: Move contents to a temporary directory (like in download_dataset)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print(f"Copying to temp dir: {temp_dir}")
+            shutil.copytree(cache_dir, temp_dir, dirs_exist_ok=True)
+
+            # Step 3: Find the first CSV file
+            csv_files = glob.glob(os.path.join(temp_dir, '**', '*.csv'), recursive=True)
+
+            if not csv_files:
+                return Response({
+                    'error': 'No CSV file found in the dataset'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            csv_file_path = csv_files[0]
+            csv_file_name = os.path.basename(csv_file_path)
+            dataset_name = os.path.splitext(csv_file_name)[0]  # Remove extension
+            
+            print(f"Found CSV: {csv_file_path}")
+
+            # Step 4: Create a Django file object similar to upload_dataset
+            with open(csv_file_path, 'rb') as f:
+                # Create an InMemoryUploadedFile from the file content
+                from django.core.files.uploadedfile import InMemoryUploadedFile
+                import io
+                
+                # Read the file content
+                file_content = f.read()
+                file_io = io.BytesIO(file_content)
+                
+                # Create an uploaded file object similar to what request.FILES provides
+                uploaded_file = InMemoryUploadedFile(
+                    file=file_io,
+                    field_name='file',
+                    name=csv_file_name,
+                    content_type='text/csv',
+                    size=len(file_content),
+                    charset=None
+                )
+                
+                # Create dataset like in upload_dataset
+                dataset = Dataset.objects.create(
+                    name=dataset_name,
+                    file=uploaded_file
+                )
+                print(f"Dataset created: {dataset.id}")
+
+                
+                # Return the dataset information
+                return Response({
+                    "id": dataset.id,
+                    "name": dataset.name,
+                }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print(f"Selection error: {str(e)}")
+        return Response({
+            'error': f'An error occurred while processing the dataset selection: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

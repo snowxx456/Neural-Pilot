@@ -99,12 +99,12 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
           },
         }
       );
-
+      //console.log("Dataset selection response:", response.data);
       if (response.status === 200) {
         // Create the dataset info object
         const datasetInfo = {
-          id: dataset.id,
-          name: dataset.title,
+          id: response.data.id,
+          name: response.data.name,
           timestamp: new Date().toISOString(),
         };
 

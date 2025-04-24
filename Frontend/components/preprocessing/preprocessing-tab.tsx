@@ -180,7 +180,7 @@ export function PreprocessingTab({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          dataset_id: datasetName,
+          dataset_id: localStorage.getItem("selectedDataset"),
         }),
       });
 
