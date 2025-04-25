@@ -7,6 +7,8 @@ import { Send, Upload, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import { toast } from "@/components/ui/use-toast"; // Make sure this import is correct
+import { ToastAction } from "../ui/toast";
+import { useRouter } from "next/navigation";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -26,6 +28,7 @@ export function ChatInput({
   const [uploadingFile, setUploadingFile] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   // API URL - use your actual backend URL
   const API_URL =
@@ -99,6 +102,7 @@ export function ChatInput({
         toast({
           title: "Dataset uploaded and selected",
           description: `Your dataset "${response.data.name}" has been uploaded and selected for your workspace.`,
+
         });
       } else {
         toast({
