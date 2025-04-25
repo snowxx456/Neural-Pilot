@@ -66,6 +66,13 @@ const INITIAL_STEPS: PreprocessingStep[] = [
     icon: Sigma,
     status: "pending",
   },
+  {
+    id: 6,
+    title: "Saving the cleaned dataset",
+    description: "Saving the cleaned dataset to a file",
+    icon: Sparkles,
+    status: "pending",
+  },
 ];
 
 export function PreprocessingTab({
@@ -79,6 +86,23 @@ export function PreprocessingTab({
   const [sseConnected, setSseConnected] = useState(false);
   const [sseError, setSseError] = useState<string | null>(null);
   const [eventSource, setEventSource] = useState<EventSource | null>(null);
+  const [datasetId, setDatasetId] = useState<any | null>(null);
+  const [name, setDatasetName] = useState<string>("");
+
+  // Load dataset info from localStorage once on component mount
+  useEffect(() => {
+    const storedData = localStorage.getItem("selectedDataset");
+    if (storedData) {
+      try {
+        const data = JSON.parse(storedData);
+        setDatasetId(data.id);
+        setDatasetName(data.name);
+        console.log("Dataset ID:", data.id);
+      } catch (error) {
+        console.error("Error parsing dataset from localStorage:", error);
+      }
+    }
+  }, []);
 
   // Connect to SSE when a preprocessing is started
   const connectToSse = useCallback(() => {
@@ -130,15 +154,48 @@ export function PreprocessingTab({
             setCurrentStepIndex(data.id - 1);
           }
 
-          // Check if all steps are completed
-          if (data.status === "completed" && data.id === steps.length) {
+          // Check if all steps are completed and we have a new dataset ID
+          if (data.status === "completed" && data.cleaned_dataset_id) {
+            // Store the new cleaned dataset ID
+            const storedData = JSON.parse(
+              localStorage.getItem("selectedDataset") || "{}"
+            );
+
+            // Create a new object with the cleaned dataset info
+            const cleanedDataset = {
+              id: data.cleaned_dataset_id,
+              name: `${storedData.name || ""}_cleaned`,
+            };
+
+            // Update localStorage with the new dataset
+            localStorage.setItem(
+              "selectedDataset",
+              JSON.stringify(cleanedDataset)
+            );
+
+            console.log(
+              "Updated selected dataset to cleaned version:",
+              cleanedDataset
+            );
+
+            // Update component state
+            setDatasetId(data.cleaned_dataset_id);
+            setDatasetName(`${storedData.name || ""}_cleaned`);
+
+            // Set completion status
             setStatus("completed");
-            // You can fetch sample data here if needed
-            setSampleData([
-              { id: 1, feature1: "Value 1", feature2: 42, target: 1 },
-              { id: 2, feature1: "Value 2", feature2: 28, target: 0 },
-              { id: 3, feature1: "Value 3", feature2: 35, target: 1 },
-            ]);
+
+            // Set sample data from the backend if it exists
+            if (data.sample) {
+              setSampleData(data.sample);
+            } else {
+              // Fallback to dummy data if no sample is provided
+              setSampleData([
+                { id: 1, feature1: "Value 1", feature2: 42, target: 1 },
+                { id: 2, feature1: "Value 2", feature2: 28, target: 0 },
+                { id: 3, feature1: "Value 3", feature2: 35, target: 1 },
+              ]);
+            }
           }
         }
       } catch (error) {
@@ -148,6 +205,59 @@ export function PreprocessingTab({
 
     return newEventSource;
   }, [eventSource, steps.length]);
+
+  const handleDownload = async () => {
+    try {
+      // Show loading state if needed
+      // setIsDownloading(true);
+
+      // Make a request to the backend to get the CSV file
+      const response = await fetch(
+        `${API_URL}api/download-cleaned-dataset/${datasetId}/`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to download: ${response.status} ${response.statusText}`
+        );
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob();
+
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary anchor element
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+
+      // Set the file name
+      a.download = `${name || "dataset"}.csv`;
+
+      // Add to the DOM and trigger the download
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      // Reset loading state if needed
+      // setIsDownloading(false);
+    } catch (error) {
+      console.error("Download failed:", error);
+      // Handle error - maybe show a toast notification
+      // setIsDownloading(false);
+    }
+  };
 
   // Cleanup function for SSE connection
   useEffect(() => {
@@ -168,21 +278,28 @@ export function PreprocessingTab({
       // Connect to SSE before starting preprocessing
       connectToSse();
 
+      if (!datasetId) {
+        console.error("No dataset selected. Please select a dataset first.");
+        setStatus("error");
+        return;
+      }
+
       console.log(
         "Sending preprocessing request to:",
-        `${API_URL}api/start-preprocessing/`
+        `${API_URL}api/start-preprocessing/${datasetId}/`
       );
 
-      // Call the Django API to start preprocessing with hardcoded URL
-      const response = await fetch(`${API_URL}api/start-preprocessing/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dataset_id: localStorage.getItem("selectedDataset"),
-        }),
-      });
+      // Call the Django API to start preprocessing with ID in URL path
+      const response = await fetch(
+        `${API_URL}api/start-preprocessing/${datasetId}/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          // No need to include id in body since it's in the URL path
+        }
+      );
 
       // The status updates will come through SSE
       console.log("Preprocessing started successfully");
@@ -215,7 +332,7 @@ export function PreprocessingTab({
             </h2>
             <p className="text-lg text-muted-foreground flex items-center gap-2">
               <Database className="h-5 w-5" />
-              {datasetName}
+              {name || datasetName}
             </p>
           </div>
         </div>
@@ -241,9 +358,7 @@ export function PreprocessingTab({
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => {
-                  /* Implement download logic */
-                }}
+                onClick={handleDownload}
                 className="gap-2 border-chart-2/30 hover:border-chart-2/50 transition-colors relative group overflow-hidden"
               >
                 <div className="absolute inset-0 bg-chart-2/10 opacity-0 group-hover:opacity-100 transition-opacity" />

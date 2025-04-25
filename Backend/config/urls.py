@@ -1,5 +1,5 @@
 from django.urls import path
-from api.views import correlation, precision_recall, roc_curve, feature_importance, confusion_matrix, health_check, upload_dataset, get_dataset, search_dataset, model_training , select_dataset, download_dataset, sse_stream, start_preprocessing, select_dataset,data_visualization,start_model_training,sse_stream_model
+from api.views import correlation, precision_recall, roc_curve, feature_importance, confusion_matrix, health_check, upload_dataset, get_dataset, search_dataset, model_training , select_dataset, download_dataset, sse_stream, start_preprocessing, select_dataset,data_visualization,start_model_training,sse_stream_model, download_cleaned_dataset
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -12,9 +12,12 @@ urlpatterns = [
     path('api/dataset/download/', download_dataset, name='download_dataset'),
     path('api/model_training/',model_training),  # Note the trailing slash
     path('api/sse-stream/', sse_stream, name='sse_stream'),
-    path('api/visualization/<int:dataset_id>', data_visualization, name='data_visualization'),
+    path('api/start-preprocessing/<int:id>/', start_preprocessing, name='start_preprocessing'),  # Note the trailing slash
+    path('api/dataset/select/', select_dataset, name='select_dataset'),  # Note the trailing slash
+    path('api/visualization/<int:dataset_id>/', data_visualization, name='data_visualization'),
     path('api/start-preprocessing/', start_preprocessing, name='start_preprocessing'),  # Note the trailing slash
     path('api/dataset/select/', select_dataset, name='select_dataset'),  
+    path('api/download-cleaned-dataset/<int:id>/', download_cleaned_dataset, name='download_cleaned_dataset'),  # Note the trailing slash
     path('api/confusionmatrix/', confusion_matrix, name='confusion_matrix'),
     path('api/featureimportance/', feature_importance, name='feature_importance'),
     path('api/roc_curve/', roc_curve, name='roc_curve'),

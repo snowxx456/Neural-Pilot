@@ -292,7 +292,8 @@ preprocessing_steps = {
     2: {"status": "pending"},
     3: {"status": "pending"},
     4: {"status": "pending"},
-    5: {"status": "pending"}
+    5: {"status": "pending"},
+    6: {"status": "pending"},
 }
 import copy
 
@@ -305,12 +306,19 @@ def event_stream():
             current = preprocessing_steps[step_id]
             last = last_sent[step_id]
             
-            if current["status"] != last["status"]:
-                data = json.dumps({
+            if current != last:  # Check if anything has changed (not just status)
+                data = {
                     "id": step_id,
                     "status": current["status"]
-                })
-                yield f"data: {data}\n\n"
+                }
+                
+                # Add cleaned_dataset_id if it exists
+                if "cleaned_dataset_id" in current:
+                    data["cleaned_dataset_id"] = current["cleaned_dataset_id"]
+                    data['status'] = "completed"  # Set status to completed for the last step
+                    data["sample"] = current["sample"] if "sample" in current else None
+                
+                yield f"data: {json.dumps(data)}\n\n"
                 last_sent[step_id] = copy.deepcopy(current)  # Deepcopy update
         
         time.sleep(0.1)  # Faster polling
@@ -334,19 +342,61 @@ def start_preprocessing(request,id):
     thread.start()
     return JsonResponse({"status": "started"})
 
+def read_csv_with_encoding(file_path):
+    encodings = ['utf-8', 'latin1', 'cp1252', 'ISO-8859-1']
+    
+    for encoding in encodings:
+        try:
+            return pd.read_csv(file_path, encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    
+    # If all encodings fail
+    raise ValueError(f"Could not read file {file_path} with any of the encodings: {encodings}")
+
 # In views.py
 def run_preprocessing_pipeline(id):
+    
+    
+    update_step_status(1, "processing")
     # Step 1: Loading Dataset
     dataset = Dataset.objects.get(id=id)
-    data = dataset.file.path
-    agent = CreateAgent(data=data)
-    update_step_status(1, "processing")
-    agent.load_data()
+    
+    # Get the absolute file path
+    import os
+    from django.conf import settings
+    
+    # If using a relative media path stored in database
+    if dataset.file.name.startswith('/'):
+        # Remove leading slash if present
+        file_path = dataset.file.name.lstrip('/')
+    else:
+        file_path = dataset.file.name
+        
+    # Get the full path
+    full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+    
+    # Print for debugging
+    print(f"Looking for file at: {full_path}")
+    
+    # Check if file exists
+    if not os.path.exists(full_path):
+        print(f"File not found at: {full_path}")
+        # Try the original path just in case
+        if os.path.exists(dataset.file.url):
+            full_path = dataset.file.url
+            print(f"Found file at original path: {full_path}")
+        else:
+            raise FileNotFoundError(f"Could not find file at {full_path} or {dataset.file.url}")
+    
+    print(f"Dataset URL: {full_path}")
+    df = read_csv_with_encoding(full_path)
+    agent = CreateAgent(df)
     update_step_status(1, "completed")
 
     # Step 2: Handling Index Columns (NEW)
     update_step_status(2, "processing")
-    agent.handle_index_columns()
+    agent.handle_index_column()
     update_step_status(2, "completed")
 
     # Step 3: Handling Missing Values
@@ -363,6 +413,20 @@ def run_preprocessing_pipeline(id):
     update_step_status(5, "processing")
     agent.handle_duplicates()
     update_step_status(5, "completed")
+    # Save the cleaned dataset
+    update_step_status(6, "processing")
+    cleaned_dataset = agent.save_dataframe_to_csv(original_dataset_id=id)
+    update_step_status(6, "completed")
+    sample = agent.sample_data()
+    
+    # Send the cleaned dataset ID through SSE
+    with preprocessing_steps_lock:
+        preprocessing_steps[6] = {
+            "status": "completed",
+            "cleaned_dataset_id": cleaned_dataset.id,
+            "sample":sample
+        }
+    
 
 #data visulaization 
 def data_visualization(id):
@@ -424,34 +488,48 @@ def data_visualization(request, dataset_id):
     try:
         # Get dataset from database
         dataset = Dataset.objects.get(id=dataset_id)
-        file_path = dataset.file.path
+        
+        # Get the absolute file path using the same approach as your download function
+        if dataset.file.name.startswith('/'):
+            file_path = dataset.file.name.lstrip('/')
+        else:
+            file_path = dataset.file.name
+            
+        full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        
+        # Check if file exists
+        if not os.path.exists(full_path):
+            print(f"File not found at: {full_path}")
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
         
         # Read the CSV file
-        df = pd.read_csv(file_path)
+        try:
+            df = pd.read_csv(full_path)
+            print(f"Successfully read CSV with {len(df)} rows and {len(df.columns)} columns")
+        except Exception as csv_error:
+            print(f"CSV read error: {str(csv_error)}")
+            return Response(
+                {"error": f"Failed to read CSV file: {str(csv_error)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
-        # Generate basic visualizations and statistics
-        visualizations = {
-            'dataset_info': {
-                'rows': len(df),
-                'columns': len(df.columns),
-                'memory_usage': df.memory_usage(deep=True).sum(),
-            },
-            'column_types': df.dtypes.to_dict(),
-            'missing_values': df.isnull().sum().to_dict(),
-            'numeric_stats': df.describe().to_dict(),
-            'correlations': df.corr().to_dict() if len(df.select_dtypes(include=['number']).columns) > 0 else {},
-        }
-
-        return Response(visualizations, status=status.HTTP_200_OK)
+        # Convert DataFrame to dictionary for JSON serialization
+        dataset_data = df.to_dict(orient='records')
+        
+        return Response(dataset_data, status=status.HTTP_200_OK)
 
     except Dataset.DoesNotExist:
+        print(f"Dataset with ID {dataset_id} not found")
         return Response(
             {"error": "Dataset not found"}, 
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
+        print(f"Error sending dataset: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return Response(
-            {"error": f"Failed to generate visualizations: {str(e)}"}, 
+            {"error": f"Failed to process dataset: {str(e)}"}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

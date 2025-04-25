@@ -1,6 +1,8 @@
 from model.data_cleaning.llm.config import Config, set_production
 import pandas as pd
-
+from api.models import Dataset
+import os
+import time
 verbose = set_production()
 
 class CreateAgent:
@@ -308,27 +310,82 @@ class CreateAgent:
             pass
             
         
-    def save_dataframe_to_csv(self, filepath="output_data.csv", index=False):
+    def save_dataframe_to_csv(self, original_dataset_id, filepath=None, index=False):
         """
-        Save the current dataframe to a CSV file.
+        Save the current dataframe to a CSV file and store it in the database.
         
         Args:
-            filepath (str): Path to save the CSV file
+            original_dataset_id (int): ID of the original dataset
+            filepath (str, optional): Path to save the CSV file. If None, a temporary path will be used.
             index (bool): Whether to include the index in the CSV
         
         Returns:
-            str: Confirmation message
+            Dataset: The newly created Dataset object
         """
-        # Get the current dataframe from the agent
-        current_df = self.agent.dataframe.execute()
-        
-        # Save to CSV
-        current_df.to_csv(filepath, index=index)
-        if not verbose:
-            print(f"DataFrame saved to {filepath} successfully")
+        try:
+            original_dataset = Dataset.objects.get(id=original_dataset_id)
+            
+            # Get the current dataframe from the agent
+            current_df = self.agent.dataframe.execute()
+            
+            # Create a temp file path if not provided
+            if filepath is None:
+                import tempfile
+                import os
+                temp_dir = tempfile.gettempdir()
+                filename = f"cleaned_{original_dataset.name.split('.')[0]}_{int(time.time())}.csv"
+                filepath = os.path.join(temp_dir, filename)
+            
+            # Save to CSV
+            current_df.to_csv(filepath, index=index)
+            
+            # Create a Django File object from the saved CSV
+            from django.core.files import File
+            with open(filepath, 'rb') as file_obj:
+                # Create new dataset with reference to the processed file
+                cleaned_name = f"{os.path.splitext(original_dataset.name)[0]}_cleaned"
+                new_dataset = Dataset.objects.create(
+                    name=cleaned_name,
+                    file=File(file_obj, name=os.path.basename(filepath))
+                )
+            
+            # Optionally remove the temp file if it was created temporarily
+            if filepath.startswith(tempfile.gettempdir()):
+                os.remove(filepath)
+                
+            return new_dataset  # Return the Dataset object, not a Response
+            
+        except Exception as e:
+            print(f"Error saving processed dataframe: {str(e)}")
+            raise e  # Re-raise to be handled by caller
 
     def get_dataframe(self):
         """
         Get the current state of the dataframe.
         """
         return self.agent.dataframe.execute()
+    def sample_data(self):
+        """
+        Get a sample of the dataframe and format it for frontend consumption.
+        """
+        # Get 5 sample rows
+        sample_df = self.agent.dataframe.execute().sample(5).reset_index()
+        
+        # Convert to list of dictionaries format expected by frontend
+        formatted_samples = []
+        for i, row in sample_df.iterrows():
+            # Create a dictionary for each row
+            row_dict = {'id': i+1}  # Start id from 1
+            
+            # Add all columns from the dataframe
+            for column in sample_df.columns:
+                if column != 'index':  # Skip the index column
+                    # Convert numpy/pandas types to Python native types for JSON serialization
+                    value = row[column]
+                    if hasattr(value, 'item'):  # Check if it's a numpy type
+                        value = value.item()
+                    row_dict[column] = value
+                    
+            formatted_samples.append(row_dict)
+        
+        return formatted_samples
