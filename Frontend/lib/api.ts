@@ -1,6 +1,60 @@
 import type { ModelResult, FeatureImportance, ConfusionMatrixData } from "./types"
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
+let modelResultsEventSource: EventSource | null = null;
+let modelResultsListeners: ((data: ModelResult[]) => void)[] = [];
+
+export function subscribeToModelResults(callback: (data: ModelResult[]) => void): () => void {
+  // Add the listener
+  modelResultsListeners.push(callback);
+  
+  // Start the connection if it's not already established
+  if (!modelResultsEventSource || modelResultsEventSource.readyState === EventSource.CLOSED) {
+    connectToModelResultsSSE();
+  }
+  
+  // Return an unsubscribe function
+  return () => {
+    modelResultsListeners = modelResultsListeners.filter(listener => listener !== callback);
+    
+    // If no more listeners, close the connection
+    if (modelResultsListeners.length === 0 && modelResultsEventSource) {
+      modelResultsEventSource.close();
+      modelResultsEventSource = null;
+    }
+  };
+}
+
+// Function to establish SSE connection for model results
+function connectToModelResultsSSE() {
+  modelResultsEventSource = new EventSource('/api/models/stream/');
+  
+  modelResultsEventSource.onmessage = (event) => {
+    try {
+      const eventData = JSON.parse(event.data);
+      
+      if (eventData.type === 'model_results') {
+        // Notify all listeners about the update
+        modelResultsListeners.forEach(listener => listener(eventData.data));
+      }
+    } catch (error) {
+      console.error('Error parsing SSE model results event:', error);
+    }
+  };
+  
+  modelResultsEventSource.onerror = (error) => {
+    console.error('SSE model results connection error:', error);
+    // Attempt to reconnect after a delay
+    if (modelResultsEventSource) {
+      modelResultsEventSource.close();
+      modelResultsEventSource = null;
+      
+      if (modelResultsListeners.length > 0) {
+        setTimeout(connectToModelResultsSSE, 3000);
+      }
+    }
+  };
+}
 // Fetch model results from the API
 export async function fetchModelResults(): Promise<ModelResult[]> {
   try {
@@ -210,20 +264,24 @@ weighted avg       0.71      0.69      0.70      2000`,
   ]
 }
 
-// Start model training
-export async function startModelTraining(): Promise<{ success: boolean; models?: ModelResult[] }> {
-  const response = await fetch("/api/train", {
+export async function startModelTraining(id: string): Promise<{ success: boolean }> {
+  const response = await fetch(`/api/train/${id}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-  })
+  });
 
   if (!response.ok) {
-    throw new Error("Failed to start model training")
+    throw new Error("Failed to start model training");
+  }
+  
+  // Make sure we're connected to both SSE streams
+  if (!modelResultsEventSource || modelResultsEventSource.readyState === EventSource.CLOSED) {
+    connectToModelResultsSSE();
   }
 
-  return response.json()
+  return { success: true };
 }
 
 // Fetch feature importance data
