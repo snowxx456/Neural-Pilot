@@ -176,11 +176,11 @@ export function ChatInput({
         />
 
         {/* Selected file indicator */}
-        {selectedFile && (
+        {/*selectedFile && (
           <div className="absolute left-12 top-1/2 -translate-y-1/2 text-sm text-muted-foreground ml-2 truncate max-w-[150px]">
             {selectedFile.name}
           </div>
-        )}
+        )*/}
 
         <textarea
           ref={inputRef}
@@ -192,7 +192,7 @@ export function ChatInput({
           rows={1}
           className={cn(
             "resize-none w-full rounded-xl py-3",
-            selectedFile ? "pl-[170px]" : "pl-12",
+            "pl-12",
             "pr-14",
             "glass-effect focus:ring-1 focus:ring-primary",
             "text-sm transition-all",
