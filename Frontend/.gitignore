@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.cache_db_.db
+cache_db_0.11.db.wal
+db.sqlite3
