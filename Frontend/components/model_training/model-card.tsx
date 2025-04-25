@@ -115,11 +115,16 @@ export function ModelCard({ model }: ModelCardProps) {
               <span>Accuracy</span>
               <span className="font-medium">{model.accuracy.toFixed(4)}</span>
             </div>
-            <Progress
-              value={model.accuracy * 100}
-              className={cn("h-2", model.isBest && "bg-primary/20")}
-              indicatorClassName={model.isBest ? "animate-pulse" : ""}
-            />
+            <div className="mt-2">
+              <Progress 
+                value={model.accuracy * 100}
+                className={cn(
+                  "h-2", 
+                  model.isBest && "bg-primary/20",
+                  model.isBest ? "[&>div]:animate-pulse" : ""
+                )}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
