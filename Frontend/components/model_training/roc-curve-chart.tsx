@@ -32,29 +32,6 @@ export function RocCurveChart() {
         setData(rocData)
       } catch (error) {
         console.error("Failed to fetch ROC curve data:", error)
-        // Provide fallback data
-        setData({
-          models: [
-            {
-              name: "RandomForest",
-              data: Array.from({ length: 100 }, (_, i) => {
-                const x = i / 100
-                const y = Math.min(1, x + 0.4 * Math.sin(Math.PI * x))
-                return { fpr: x, tpr: y }
-              }),
-              auc: 0.92,
-            },
-            {
-              name: "LogisticRegression",
-              data: Array.from({ length: 100 }, (_, i) => {
-                const x = i / 100
-                const y = Math.min(1, x + 0.25 * Math.sin(Math.PI * x))
-                return { fpr: x, tpr: y }
-              }),
-              auc: 0.82,
-            },
-          ],
-        })
       } finally {
         setLoading(false)
       }

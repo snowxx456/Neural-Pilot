@@ -21,20 +21,7 @@ export function FeatureImportanceChart() {
         const importanceData = await fetchFeatureImportance()
         setData(importanceData)
       } catch (error) {
-        console.error("Failed to fetch feature importance data:", error)
-        // Provide fallback data
-        setData([
-          { feature: "age", importance: 0.185 },
-          { feature: "income", importance: 0.162 },
-          { feature: "education_level", importance: 0.143 },
-          { feature: "credit_score", importance: 0.128 },
-          { feature: "employment_years", importance: 0.112 },
-          { feature: "debt_to_income", importance: 0.098 },
-          { feature: "num_credit_cards", importance: 0.087 },
-          { feature: "num_dependents", importance: 0.076 },
-          { feature: "has_mortgage", importance: 0.065 },
-          { feature: "has_car_loan", importance: 0.054 },
-        ])
+        console.error("Failed to fetch feature importance data:", error)  // Added closing parenthesis here
       } finally {
         setLoading(false)
       }

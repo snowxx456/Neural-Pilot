@@ -1,4 +1,4 @@
-from library import *
+from .library import *
 
 class DataLoader:
     def __init__(self,data,target_column=None):

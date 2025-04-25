@@ -1,4 +1,5 @@
 import type { ModelResult, FeatureImportance, ConfusionMatrixData } from "./types"
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 // Fetch model results from the API
 export async function fetchModelResults(): Promise<ModelResult[]> {
@@ -236,7 +237,7 @@ export async function fetchFeatureImportance(): Promise<FeatureImportance[]> {
 
 // Fetch confusion matrix data
 export async function fetchConfusionMatrix(): Promise<ConfusionMatrixData> {
-  const response = await fetch("/api/confusion-matrix")
+  const response = await fetch(`${API}/api/confusionmatrix/`)
   if (!response.ok) {
     throw new Error("Failed to fetch confusion matrix data")
   }

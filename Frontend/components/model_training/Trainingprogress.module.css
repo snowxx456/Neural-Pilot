@@ -1,0 +1,268 @@
+/* styles/TrainingProgress.module.css */
+
+.trainingContainer {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .title {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 24px;
+  }
+  
+  .connectionStatus {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #666;
+  }
+  
+  .connected {
+    color: #28a745;
+    font-weight: bold;
+    margin-left: 5px;
+  }
+  
+  .disconnected {
+    color: #dc3545;
+    font-weight: bold;
+    margin-left: 5px;
+  }
+  
+  .startButton {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 20px;
+    transition: background-color 0.2s;
+  }
+  
+  .startButton:hover {
+    background-color: #0069d9;
+  }
+  
+  .startButton:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+  }
+  
+  .progressContainer {
+    margin-bottom: 20px;
+  }
+  
+  .overallProgress {
+    margin-bottom: 20px;
+  }
+  
+  .overallProgress h3 {
+    margin-bottom: 10px;
+    font-size: 18px;
+    color: #333;
+  }
+  
+  .progressBar {
+    height: 24px;
+    background-color: #e9ecef;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .progressFill {
+    height: 100%;
+    background-color: #28a745;
+    border-radius: 12px;
+    transition: width 0.3s ease;
+  }
+  
+  .progressText {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: bold;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  }
+  
+  .stepsContainer {
+    margin-bottom: 20px;
+  }
+  
+  .stepsContainer h3 {
+    margin-bottom: 10px;
+    font-size: 18px;
+    color: #333;
+  }
+  
+  .noSteps {
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    background-color: #f1f3f5;
+    border-radius: 4px;
+  }
+  
+  .stepsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .step {
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+  }
+  
+  .pending {
+    background-color: #f8f9fa;
+    border-left: 4px solid #6c757d;
+  }
+  
+  .processing {
+    background-color: #cce5ff;
+    border-left: 4px solid #007bff;
+    animation: pulse 2s infinite;
+  }
+  
+  .completed {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+  }
+  
+  .error {
+    background-color: #f8d7da;
+    border-left: 4px solid #dc3545;
+  }
+  
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.2);
+    }
+    70% {
+      box-shadow: 0 0 0 5px rgba(0, 123, 255, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+    }
+  }
+  
+  .stepHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  
+  .stepNumber {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #333;
+    font-weight: bold;
+    font-size: 14px;
+  }
+  
+  .stepName {
+    flex-grow: 1;
+    margin-left: 10px;
+    font-weight: 600;
+  }
+  
+  .stepStatus {
+    margin-left: 10px;
+    font-size: 18px;
+  }
+  
+  .stepProgressBar {
+    height: 10px;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 5px;
+    position: relative;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  
+  .stepProgressFill {
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    transition: width 0.3s ease;
+  }
+  
+  .stepProgressText {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .stepMessage {
+    font-size: 14px;
+    color: #666;
+    margin-top: 5px;
+  }
+  
+  .logContainer {
+    margin-top: 20px;
+  }
+  
+  .logContainer h3 {
+    margin-bottom: 10px;
+    font-size: 18px;
+    color: #333;
+  }
+  
+  .log {
+    background-color: #212529;
+    border-radius: 4px;
+    padding: 10px;
+    height: 200px;
+    overflow-y: auto;
+  }
+  
+  .logEntry {
+    margin: 0;
+    padding: 2px 0;
+    font-family: monospace;
+    font-size: 12px;
+    color: #adb5bd;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  
+  .logEntry:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.03);
+  }

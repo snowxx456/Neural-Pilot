@@ -9,7 +9,7 @@ from groq import Groq
 load_dotenv()
 
 # Configuration - Set your default file path here
-DEFAULT_FILE_PATH = "AUTOML\c.csv"  # Change this to your default dataset path
+DEFAULT_FILE_PATH = "./cleaned.csv"  # Change this to your default dataset path
 
 class TargetColumnRecommender:
     def __init__(self,file_path):

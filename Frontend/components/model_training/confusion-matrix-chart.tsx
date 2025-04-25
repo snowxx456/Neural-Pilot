@@ -20,14 +20,6 @@ export function ConfusionMatrixChart() {
         setData(matrixData)
       } catch (error) {
         console.error("Failed to fetch confusion matrix data:", error)
-        // Provide fallback data
-        setData({
-          matrix: [
-            [1180, 413],
-            [142, 265],
-          ],
-          labels: ["0", "1"],
-        })
       } finally {
         setLoading(false)
       }

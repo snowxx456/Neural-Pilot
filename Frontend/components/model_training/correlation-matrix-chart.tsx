@@ -20,17 +20,6 @@ export function CorrelationMatrixChart() {
         setData(correlationData)
       } catch (error) {
         console.error("Failed to fetch correlation matrix data:", error)
-        // Provide fallback data
-        setData({
-          features: ["age", "income", "education", "credit_score", "employment"],
-          matrix: [
-            [1.0, 0.65, 0.45, 0.72, 0.58],
-            [0.65, 1.0, 0.68, 0.54, 0.62],
-            [0.45, 0.68, 1.0, 0.42, 0.35],
-            [0.72, 0.54, 0.42, 1.0, 0.48],
-            [0.58, 0.62, 0.35, 0.48, 1.0],
-          ],
-        })
       } finally {
         setLoading(false)
       }

@@ -1,4 +1,4 @@
-from library import *
+from .library import *
 
 class VisualizationHandler():
     def __init__(self,data, best_model, best_model_name, results,feature_names,label_encoder,
@@ -113,6 +113,10 @@ class VisualizationHandler():
             return {"error": f"Could not extract confusion matrix data: {str(e)}"}
         
     def roc_curve(self):
+    # First, check if we have the necessary data
+        if self.probabilities is None or self.y_test is None:
+            return {"error": "Missing probabilities or test data for ROC curve"}
+            
         if self.best_model_name in ['RandomForest', 'GradientBoosting', 'RandomForestRegressor', 
                                 'GradientBoostingRegressor', 'XGBoost', 'LightGBM', 'CatBoost']:
             try:
@@ -126,13 +130,14 @@ class VisualizationHandler():
                     "fpr": [round(float(x), 4) for x in fpr],
                     "tpr": [round(float(x), 4) for x in tpr],
                     "auc": round(float(roc_auc), 4),
-                    "modelName": self.best_model
+                    "modelName": self.best_model_name
                 }
                 
                 return roc_data
                     
             except Exception as e:
                 return {"error": f"Could not extract ROC curve data: {str(e)}"}
+        return {"error": "Current model type doesn't support ROC curve visualization"}
     
     def precision_recall_curve(self):
         if self.best_model_name in ['RandomForest', 'GradientBoosting', 'RandomForestRegressor', 

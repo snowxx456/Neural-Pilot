@@ -1,5 +1,4 @@
-from library import *
-
+from .library import *
 
 class ModelTrainer ():
     def __init__(self, problem_type,target_column,data,x,y,preprocessor=None):
@@ -14,6 +13,7 @@ class ModelTrainer ():
         self.df = data
         self.target_column = target_column
         self.preprocessor = preprocessor
+        self.model_card = {}
 
     def _get_models(self):
         """Return appropriate models based on problem type."""
@@ -276,6 +276,14 @@ class ModelTrainer ():
                     'train_time': train_time,
                     'cv_time': cv_time
                 }
+
+                self.model_card[name] = {
+                    'accuracy': accuracy,
+                    'precision': None,
+                    'recall': None,
+                    'f1_score': None,
+                    'train_time': train_time,
+                } 
                 
                 # Print results
                 if self.problem_type == 'classification':
@@ -295,8 +303,9 @@ class ModelTrainer ():
             self.best_model_name = max(self.results, key=lambda k: self.results[k]['accuracy'])
             self.best_model = self.results[self.best_model_name]
             print(f"\nBest model: {self.best_model_name} with {'accuracy' if self.problem_type == 'classification' else 'R2'}: {self.best_model['accuracy']:.4f}")
+            probabilities = self.results[self.best_model_name]["probabilities"]
         
-        return self.results
+        return self.results,probabilities,self.model_card
     
     def hypertune_best_model(self):
         """Hypertune the best model with Bayesian optimization."""

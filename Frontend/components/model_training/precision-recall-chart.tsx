@@ -32,29 +32,6 @@ export function PrecisionRecallChart() {
         setData(prData)
       } catch (error) {
         console.error("Failed to fetch precision-recall curve data:", error)
-        // Provide fallback data
-        setData({
-          models: [
-            {
-              name: "RandomForest",
-              data: Array.from({ length: 100 }, (_, i) => {
-                const recall = i / 100
-                const precision = 1 - 0.3 * Math.pow(recall, 1.5)
-                return { recall, precision: Math.max(0, precision) }
-              }),
-              avgPrecision: 0.85,
-            },
-            {
-              name: "LogisticRegression",
-              data: Array.from({ length: 100 }, (_, i) => {
-                const recall = i / 100
-                const precision = 1 - 0.5 * Math.pow(recall, 1.2)
-                return { recall, precision: Math.max(0, precision) }
-              }),
-              avgPrecision: 0.72,
-            },
-          ],
-        })
       } finally {
         setLoading(false)
       }
