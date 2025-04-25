@@ -1,4 +1,7 @@
 from .library import *
+from api.models import Dataset
+from django.conf import settings  # Import settings here
+import os
 
 class VisualizationHandler():
     def __init__(self,data, best_model, best_model_name, results,feature_names,label_encoder,
@@ -185,17 +188,34 @@ class VisualizationHandler():
         except Exception as e:
             return {"error": f"Could not prepare model comparison data: {str(e)}"}
     
-    def save_model(self, filename='best_model.pkl'):
-        """Save the best model to a file."""
+    def save_model(self, dataset_id=None, filename=None):
+        """Save the best model to a file and associate it with a dataset."""
+        
+        
         if self.best_model is None:
             print("No best model to save.")
             return False
         
+        if filename is None:
+            filename = 'best_model.pkl'
+        
         try:
+            # Set up the file path
+            model_path = os.path.join(settings.MEDIA_ROOT, 'models', filename)
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            
             # Save the entire pipeline (including preprocessor)
-            joblib.dump(self.best_model['pipeline'], filename)
-            print(f"\nBest model saved to {filename}")
-            return True
+            joblib.dump(self.best_model['pipeline'], model_path)
+            print(f"\nBest model saved to {model_path}")
+            
+            # If dataset_id is provided, associate the model with the dataset
+            if dataset_id:
+                dataset = Dataset.objects.get(id=dataset_id)
+                dataset.model_file = os.path.join('models', filename)
+                dataset.save()
+                print(f"Model associated with dataset: {dataset.name}")
+            
+            return dataset_id
         except Exception as e:
             print(f"\nError saving model: {str(e)}")
-            return False
+            return None

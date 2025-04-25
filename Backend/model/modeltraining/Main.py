@@ -7,7 +7,7 @@ from visualization import VisualizationHandler
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
 
-target = TargetColumnRecommender(file_path="Nerual-Pilot\Backend\model\modeltraining\c.csv")
+target = TargetColumnRecommender(file_path="./c.csv")
 # Load the data and check for issues
 if target.load_data():
     print("Data loaded successfully.")

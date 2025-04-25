@@ -113,69 +113,82 @@ def run_model_training_pipeline(id):
     """Run the entire model training pipeline with SSE updates"""
     try:
         # Step 1: Loading Dataset
-        update_step_status(1, "processing", {"message": "Loading dataset..."})
+        update_step_status_model(1, "processing", {"message": "Loading dataset..."})
         time.sleep(0.5)  # Simulate processing time
         
-        file_path = "Nerual-Pilot/Backend/model/modeltraining/c.csv"
+        dataset = Dataset.objects.get(id=id)
+        
+        # Get the absolute file path
+        if dataset.file.name.startswith('/'):
+            file_path = dataset.file.name.lstrip('/')
+        else:
+            file_path = dataset.file.name
+            
+        file_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            print(f"File not found at: {file_path}")
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
         target = TargetColumnRecommender(file_path=file_path)
         
         if not target.load_data():
-            update_step_status(1, "error", {"message": "Failed to load dataset"})
+            update_step_status_model(1, "error", {"message": "Failed to load dataset"})
             return
             
-        update_step_status(1, "completed", {"message": "Dataset loaded successfully"})
+        update_step_status_model(1, "completed", {"message": "Dataset loaded successfully"})
         
         # Step 2: Target Column Analysis
-        update_step_status(2, "processing", {"message": "Analyzing potential target columns..."})
+        update_step_status_model(2, "processing", {"message": "Analyzing potential target columns..."})
         time.sleep(0.5)  # Simulate processing time
         
         if not target._validate_data():
-            update_step_status(2, "error", {"message": "Data validation failed"})
+            update_step_status_model(2, "error", {"message": "Data validation failed"})
             return
             
         target.analyze_for_target()
         target_column = target.get_target_column()
         recommendation_reason = target.get_recommendation_reason()
         
-        update_step_status(2, "completed", {
+        update_step_status_model(2, "completed", {
             "target_column": target_column,
             "reason": recommendation_reason
         })
         
         # Step 3: Data Validation
-        update_step_status(3, "processing", {"message": "Validating dataset quality..."})
+        update_step_status_model(3, "processing", {"message": "Validating dataset quality..."})
         time.sleep(0.5)  # Simulate processing time
         
         file_path = target.get_file_path()
         dataloader = DataLoader(file_path, target_column=target_column)
         
         if not dataloader.load_data():
-            update_step_status(3, "error", {"message": "Failed to load data for validation"})
+            update_step_status_model(3, "error", {"message": "Failed to load data for validation"})
             return
             
         issues = dataloader._check_data_issues(dataloader.df)
         
-        update_step_status(3, "completed", {
+        update_step_status_model(3, "completed", {
             "issues_found": len(issues) if issues else 0,
             "data_shape": dataloader.df.shape
         })
         
         # Step 4: Data Preparation
-        update_step_status(4, "processing", {"message": "Preparing data for modeling..."})
+        update_step_status_model(4, "processing", {"message": "Preparing data for modeling..."})
         time.sleep(0.5)  # Simulate processing time
         
         dataloader.set_target()
         x, y = dataloader.prepare_data()
         df = dataloader.df
         
-        update_step_status(4, "completed", {
+        update_step_status_model(4, "completed", {
             "rows": x.shape[0],
             "features": x.shape[1],
             "problem_type": dataloader.problem_type
         })
         
         # Step 5: Model Training
-        update_step_status(5, "processing", {"message": "Training multiple model candidates..."})
+        update_step_status_model(5, "processing", {"message": "Training multiple model candidates..."})
         
         model_training = ModelTrainer(
             target_column=target_column,
@@ -192,7 +205,7 @@ def run_model_training_pipeline(id):
         
         # Simulate training progress
         for i, model_name in enumerate(models_to_train):
-            update_step_status(5, "processing", {
+            update_step_status_model(5, "processing", {
                 "message": f"Training {model_name}...",
                 "progress": (i / total_models) * 100,
                 "current_model": model_name
@@ -200,33 +213,36 @@ def run_model_training_pipeline(id):
             time.sleep(1)  # Simulate training time
         
         # Actual training
-        results, best_model, model_card = model_training.train_models()
+        results, best_model,m = model_training.train_models()
+        model_card = model_training.get_formatted_results()
+        print(f"Model card: {model_card}")
         
-        update_step_status(5, "completed", {
+        update_step_status_model(5, "completed", {
             "best_model": model_training.best_model_name,
             "models_trained": list(results.keys()),
-            "total_models": len(results)
+            "total_models": len(results),
+            "model_card": model_card
         })
         
         # Step 6: Hyperparameter Tuning
-        update_step_status(6, "processing", {"message": f"Hypertuning {model_training.best_model_name}..."})
+        update_step_status_model(6, "processing", {"message": f"Hypertuning {model_training.best_model_name}..."})
         time.sleep(2)  # Simulate tuning time
         
         # Skip hypertuning for now, but you could add actual hypertuning here
-        # hyper = model_training.hypertune_best_model()
+        hyper = model_training.hypertune_best_model()
         
-        update_step_status(6, "completed", {
+        update_step_status_model(6, "completed", {
             "model": model_training.best_model_name,
-            "improvement": "Skip for now"  # Replace with actual improvement
+            "improvement": "Completed"  # Replace with actual improvement
         })
         
         # Step 7: Model Evaluation
-        update_step_status(7, "processing", {"message": "Evaluating model performance..."})
+        update_step_status_model(7, "processing", {"message": "Evaluating model performance..."})
         time.sleep(0.5)  # Simulate processing time
         
         best_model_results = results[model_training.best_model_name]
         
-        update_step_status(7, "completed", {
+        update_step_status_model(7, "completed", {
             "accuracy": best_model_results.get("accuracy"),
             "f1_score": best_model_results.get("metrics", {}).get("f1"),
             "precision": best_model_results.get("metrics", {}).get("precision"),
@@ -234,7 +250,7 @@ def run_model_training_pipeline(id):
         })
         
         # Step 8: Visualization Generation
-        update_step_status(8, "processing", {"message": "Generating visualizations..."})
+        update_step_status_model(8, "processing", {"message": "Generating visualizations..."})
         time.sleep(1)  # Simulate processing time
         
         visualization = VisualizationHandler(
@@ -252,27 +268,27 @@ def run_model_training_pipeline(id):
         # Generate visualizations
         viz_types = ["correlation", "feature_importance", "confusion_matrix", "roc_curve", "precision_recall"]
         for i, viz_type in enumerate(viz_types):
-            update_step_status(8, "processing", {
+            update_step_status_model(8, "processing", {
                 "message": f"Generating {viz_type} visualization...",
                 "progress": (i / len(viz_types)) * 100,
                 "current_viz": viz_type
             })
             time.sleep(0.5)  # Simulate generation time
         
-        update_step_status(8, "completed", {
+        update_step_status_model(8, "completed", {
             "visualizations_generated": viz_types,
             "count": len(viz_types)
         })
         
         # Step 9: Model Saving
-        update_step_status(9, "processing", {"message": "Saving trained model..."})
+        update_step_status_model(9, "processing", {"message": "Saving trained model..."})
         time.sleep(0.5)  # Simulate processing time
         
         model_path = visualization.save_model(model_training.best_model_name)
         
-        update_step_status(9, "completed", {
-            "model_name": model_training.best_model_name,
-            "file_path": f"{model_training.best_model_name}.pkl"
+        
+        update_step_status_model(9, "completed", {
+            "model_name": model_path,
         })
         
     except Exception as e:
@@ -283,7 +299,7 @@ def run_model_training_pipeline(id):
         # Update the current step with error status
         for step_id in training_steps:
             if training_steps[step_id]["status"] == "processing":
-                update_step_status(step_id, "error", {
+                update_step_status_model(step_id, "error", {
                     "message": str(e),
                     "details": error_details
                 })
@@ -491,7 +507,7 @@ def data_visualization(request, dataset_id):
         # Get dataset from database
         dataset = Dataset.objects.get(id=dataset_id)
         
-        # Get the absolute file path using the same approach as your download function
+        # Get the absolute file path
         if dataset.file.name.startswith('/'):
             file_path = dataset.file.name.lstrip('/')
         else:
@@ -515,10 +531,60 @@ def data_visualization(request, dataset_id):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
-        # Convert DataFrame to dictionary for JSON serialization
-        dataset_data = df.to_dict(orient='records')
+        # Process the data into the format expected by frontend
+        columns = {}
+        for col in df.columns:
+            col_data = df[col]
+            col_type = "categorical"
+            
+            # Determine column type
+            if pd.api.types.is_numeric_dtype(col_data):
+                col_type = "numeric"
+            elif pd.api.types.is_bool_dtype(col_data):
+                col_type = "boolean"
+            elif pd.api.types.is_datetime64_dtype(col_data):
+                col_type = "datetime"
+            
+            # Calculate stats based on type
+            columns[col] = {
+                "name": col,
+                "type": col_type,
+                "uniqueValues": int(col_data.nunique()),
+                "missing": int(col_data.isna().sum()),
+            }
+            
+            # Add type-specific stats
+            if col_type == "numeric":
+                min_val = None if pd.isna(col_data.min()) else float(col_data.min())
+                max_val = None if pd.isna(col_data.max()) else float(col_data.max())
+                mean_val = None if pd.isna(col_data.mean()) else float(col_data.mean())
+                
+                columns[col].update({
+                    "min": min_val,
+                    "max": max_val,
+                    "mean": mean_val,
+                    "mode": None
+                })
+            else:
+                # Handle mode for categorical data
+                mode_series = col_data.mode()
+                mode_value = None if mode_series.empty else str(mode_series.iloc[0])
+                
+                columns[col].update({
+                    "min": None,
+                    "max": None,
+                    "mean": None,
+                    "mode": mode_value
+                })
         
-        return Response(dataset_data, status=status.HTTP_200_OK)
+        # Create response structure
+        formatted_data = {
+            "rowCount": len(df),
+            "columns": columns,
+            "data": df.head(50).to_dict('records')  # First 50 rows for preview
+        }
+        
+        return Response(formatted_data, status=status.HTTP_200_OK)
 
     except Dataset.DoesNotExist:
         print(f"Dataset with ID {dataset_id} not found")
@@ -606,6 +672,39 @@ def model_training(request, id):
             "error": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+
+@api_view(['GET'])
+def download_model(request, model_id):
+    try:
+        # The model_id should now be the model name or identifier
+        # Extract just the filename from the model_id if it contains a path
+        model_filename = os.path.basename(model_id)
+        
+        # Construct the path to the model file
+        model_path = os.path.join(settings.MEDIA_ROOT, 'models', model_filename)
+        
+        # In case the model_id is already the full path
+        if not os.path.exists(model_path) and os.path.exists(model_id):
+            model_path = model_id
+        
+        # Check if file exists
+        if not os.path.exists(model_path):
+            return Response({
+                'error': f'Model file not found: {model_filename}'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+        # Serve the model file to frontend
+        with open(model_path, 'rb') as f:
+            response = HttpResponse(f.read(), content_type='application/octet-stream')
+            response['Content-Disposition'] = f'attachment; filename="{os.path.basename(model_path)}"'
+            return response
+
+    except Exception as e:
+        print(f"Download model error: {str(e)}")
+        return Response({
+            'error': f'An error occurred while processing the model download: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['POST'])
 def download_dataset(request):
     try:
@@ -995,30 +1094,5 @@ def download_cleaned_dataset(request, id):
         print(f"Download error: {str(e)}")
         return Response({"error": str(e)}, status=500)
 
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, float):
-            if obj == inf:
-                return "Infinity"
-            if obj == -inf:
-                return "-Infinity"
-            if isnan(obj):
-                return "NaN"
-        return super().default(obj)
 
-@api_view(['GET'])
-def visualization(request, id):
-    try:
-        # Your existing visualization code...
-        
-        # Use the custom encoder when returning the response
-        return Response(
-            data,
-            status=status.HTTP_200_OK,
-            json_dumps_params={'cls': CustomJSONEncoder}
-        )
-    except Exception as e:
-        return Response(
-            {"error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+
