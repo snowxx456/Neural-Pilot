@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import {
   Table,
@@ -7,106 +7,111 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { DatasetType } from '@/lib/types'
-import { formatValue } from '@/lib/formatters'
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { DatasetType } from "@/lib/types";
+import { formatValue } from "@/lib/formatters";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 interface DataSummaryProps {
-  dataset: DatasetType
+  dataset: DatasetType;
 }
 
 export function DataSummary({ dataset }: DataSummaryProps) {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [visualData, setVisualData] = useState<DatasetType | null>(null)
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [visualData, setVisualData] = useState<DatasetType | null>(null);
+  const API = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8000/";
 
   useEffect(() => {
     const fetchVisualizationData = async () => {
-      const storedData = localStorage.getItem("selectedDataset")
+      const storedData = localStorage.getItem("selectedDataset");
       if (!storedData) {
-        setError("No dataset information found")
-        setLoading(false)
-        return
+        setError("No dataset information found");
+        setLoading(false);
+        return;
       }
 
       try {
-        const { id } = JSON.parse(storedData)
-        setLoading(true)
-        setError(null)
-        
-        const response = await fetch(`/api/visualization/${id}/`, {
-          method: 'POST',
+        const { id } = JSON.parse(storedData);
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch(`${API}api/visualization/${id}/`, {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-          }
-        })
+            "Content-Type": "application/json",
+          },
+        });
 
         if (!response.ok) {
           if (response.status === 404) {
-            throw new Error('Dataset not found on server')
+            throw new Error("Dataset not found on server");
           }
-          throw new Error(`Server responded with status ${response.status}`)
+          throw new Error(`Server responded with status ${response.status}`);
         }
 
-        const data = await response.json()
-        if (!data || typeof data !== 'object') {
-          throw new Error('Invalid data format received from API')
+        const data = await response.json();
+        if (!data || typeof data !== "object") {
+          throw new Error("Invalid data format received from API");
         }
-        
-        setVisualData(data)
+        console.log("Visualization data:", data);
+
+        setVisualData(data);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load data'
-        setError(errorMessage)
-        console.error('Error loading visualization:', err)
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load data";
+        setError(errorMessage);
+        console.error("Error loading visualization:", err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchVisualizationData()
-  }, [])
+    fetchVisualizationData();
+  }, []);
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'numeric':
-        return 'bg-blue-500 text-white'
-      case 'categorical':
-        return 'bg-green-500 text-white'
-      case 'datetime':
-        return 'bg-purple-500 text-white'
-      case 'boolean':
-        return 'bg-yellow-500 text-white'
+      case "numeric":
+        return "bg-blue-500 text-white";
+      case "categorical":
+        return "bg-green-500 text-white";
+      case "datetime":
+        return "bg-purple-500 text-white";
+      case "boolean":
+        return "bg-yellow-500 text-white";
       default:
-        return 'bg-gray-500 text-white'
+        return "bg-gray-500 text-white";
     }
-  }
+  };
 
   const isValidNumber = (value: any): boolean => {
-    return typeof value === 'number' && Number.isFinite(value)
-  }
+    return typeof value === "number" && Number.isFinite(value);
+  };
 
   const calculateDataPoints = (): number => {
-    const rows = visualData?.rowCount || 0
-    const cols = visualData?.columns ? Object.keys(visualData.columns).length : 0
-    return rows * cols
-  }
+    const rows = visualData?.rowCount || 0;
+    const cols = visualData?.columns
+      ? Object.keys(visualData.columns).length
+      : 0;
+    return rows * cols;
+  };
 
   if (loading) {
-    return <DataSummarySkeleton />
+    return <DataSummarySkeleton />;
   }
 
   if (error) {
@@ -116,8 +121,8 @@ export function DataSummary({ dataset }: DataSummaryProps) {
           <AlertTitle>Error Loading Data</AlertTitle>
           <AlertDescription className="flex flex-col gap-3">
             <div>{error}</div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => window.location.reload()}
               className="w-fit"
             >
@@ -128,17 +133,21 @@ export function DataSummary({ dataset }: DataSummaryProps) {
         </Alert>
         <DataSummarySkeleton />
       </div>
-    )
+    );
   }
 
-  if (!visualData || !visualData.columns || Object.keys(visualData.columns).length === 0) {
+  if (
+    !visualData ||
+    !visualData.columns ||
+    Object.keys(visualData.columns).length === 0
+  ) {
     return (
       <Alert>
         <AlertDescription>
           Dataset loaded but contains no column information. Try refreshing.
         </AlertDescription>
       </Alert>
-    )
+    );
   }
 
   return (
@@ -147,15 +156,18 @@ export function DataSummary({ dataset }: DataSummaryProps) {
       <Card>
         <CardHeader>
           <CardTitle>Dataset Summary</CardTitle>
-          <CardDescription>Overview of dataset structure and content</CardDescription>
+          <CardDescription>
+            Overview of dataset structure and content
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-card rounded-lg p-4 border">
               <div className="text-sm text-muted-foreground">Rows</div>
               <div className="text-2xl font-bold">
-                {isValidNumber(visualData.rowCount) ? 
-                  visualData.rowCount.toLocaleString() : 'N/A'}
+                {isValidNumber(visualData.rowCount)
+                  ? visualData.rowCount.toLocaleString()
+                  : "N/A"}
               </div>
             </div>
             <div className="bg-card rounded-lg p-4 border">
@@ -202,12 +214,12 @@ export function DataSummary({ dataset }: DataSummaryProps) {
                         {column.type}
                       </Badge>
                     </TableCell>
-                    <TableCell>{column.uniqueValues ?? 'N/A'}</TableCell>
+                    <TableCell>{column.uniqueValues ?? "N/A"}</TableCell>
                     <TableCell>{column.missing ?? 0}</TableCell>
                     <TableCell>{formatValue(column.min)}</TableCell>
                     <TableCell>{formatValue(column.max)}</TableCell>
                     <TableCell>
-                      {column.type === 'numeric' 
+                      {column.type === "numeric"
                         ? formatValue(column.mean)
                         : formatValue(column.mode)}
                     </TableCell>
@@ -250,7 +262,7 @@ export function DataSummary({ dataset }: DataSummaryProps) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 function DataSummarySkeleton() {
@@ -287,5 +299,5 @@ function DataSummarySkeleton() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
