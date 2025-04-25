@@ -55,6 +55,7 @@ export interface ChartRecommendation {
   xAxis?: string;
   yAxis?: string[];
   confidence: number;
+  filter?: Record<string, any>;
 }
 
 // The processed dataset returned from the backend
