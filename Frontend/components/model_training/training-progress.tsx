@@ -3,22 +3,36 @@
 import { useState, useEffect } from "react"
 import { Progress } from "@/components/ui/progress"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Clock, AlertCircle } from "lucide-react"
-import { estimateTrainingTime } from "@/lib/api"
+import { Loader2, Clock, AlertCircle, Play } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-interface TrainingProgressProps {
-  isTraining: boolean
-  datasetSize: number
-  modelComplexity: "low" | "medium" | "high"
-  onComplete?: () => void
+interface StepDetails {
+  [key: string]: any;
 }
 
-export function TrainingProgress({ isTraining, datasetSize, modelComplexity, onComplete }: TrainingProgressProps) {
-  const [progress, setProgress] = useState(0)
-  const [currentModel, setCurrentModel] = useState("Preparing data...")
-  const [timeRemaining, setTimeRemaining] = useState(0)
-  const [error, setError] = useState<string | null>(null)
+interface TrainingStep {
+  id: number;
+  name: string;
+  status: "pending" | "processing" | "completed" | "error";
+  details: StepDetails;
+}
 
+export function TrainingProgress() { 
+  const [datasetId, setDatasetId] = useState<any | null>(null);
+  const [datasetName, setDatasetName] = useState<any | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [currentModel, setCurrentModel] = useState("Preparing data...");
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+  const [connected, setConnected] = useState(false);
+  const [trainingComplete, setTrainingComplete] = useState(false);
+  const [steps, setSteps] = useState<{ [key: number]: TrainingStep }>({});
+  const [isTraining, setIsTraining] = useState(false);
+  
+  // Make sure the API URL has the correct format
+  const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/?$/, "/");
+  
   // Models to simulate training
   const models = [
     "Preparing data...",
@@ -29,67 +43,205 @@ export function TrainingProgress({ isTraining, datasetSize, modelComplexity, onC
     "SVM",
     "NaiveBayes",
     "Finalizing results...",
-  ]
+  ];
+
+  // Add to log function
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLog((prev) => [...prev, `[${timestamp}] ${message}`]);
+    console.log(`[${timestamp}] ${message}`); // Add console.log for debugging
+  };
 
   useEffect(() => {
-    if (!isTraining) {
-      setProgress(0)
-      setCurrentModel("Preparing data...")
-      setTimeRemaining(0)
-      setError(null)
-      return
+    const storedData = localStorage.getItem("selectedDataset");
+    if (storedData) {
+      const parsedData = JSON.parse(storedData);
+      setDatasetId(parsedData.id);
+      setDatasetName(parsedData.name);
     }
 
-    // Estimate total training time
-    const totalTime = estimateTrainingTime(datasetSize, modelComplexity)
-    setTimeRemaining(totalTime)
+    // Check if there's a saved model from previous training
+    const savedModelData = localStorage.getItem("trainedModel");
+    if (savedModelData) {
+      setTrainingComplete(true);
+      addLog(`Previously trained model is available for download.`);
+    }
+  }, []);
 
-    // Reset progress
-    setProgress(0)
-    setCurrentModel(models[0])
+  // Start training function
+  const startTraining = async () => {
+    console.log("Start Training clicked"); // Debug log
+    console.log("Dataset ID:", datasetId); // Debug log
+    
+    if (!datasetId) {
+      const errorMsg = "Error: No dataset selected";
+      addLog(errorMsg);
+      setError(errorMsg);
+      return;
+    }
 
-    // Simulate training progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        // Calculate new progress
-        const newProgress = prev + 100 / (totalTime * 10)
+    try {
+      const response = await fetch(`${API}api/train/${datasetId}/`, {
+        method: "POST",
+      });
 
-        // Update current model based on progress
-        const modelIndex = Math.min(Math.floor((newProgress / 100) * models.length), models.length - 1)
-        setCurrentModel(models[modelIndex])
+      if (!response.ok) {
+        throw new Error("Failed to start training");
+      }
 
-        // Update time remaining
-        const remainingPercentage = 1 - newProgress / 100
-        setTimeRemaining(Math.max(0, Math.round(totalTime * remainingPercentage)))
+      const data = await response.json();
+      addLog(`Training started: ${data.message}`);
+      setIsTraining(true);
 
-        // Check if training is complete
-        if (newProgress >= 100) {
-          clearInterval(interval)
-          if (onComplete) {
-            setTimeout(onComplete, 500)
+      // Reset training complete state when starting new training
+      setTrainingComplete(false);
+      // Clear any previously saved model data
+      localStorage.removeItem("trainedModel");
+    } catch (error) {
+      addLog(
+        `Error starting training: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  };
+
+  // Download trained model function
+  const downloadModel = () => {
+    // Get model data from local storage
+    const savedModelData = localStorage.getItem("trainedModel");
+    if (!savedModelData) {
+      addLog("Error: No model available to download");
+      return;
+    }
+
+    const parsedModelData = JSON.parse(savedModelData);
+    const modelId = parsedModelData.model_name;
+
+    if (!modelId) {
+      addLog("Error: Model ID not found");
+      return;
+    }
+
+    // Create anchor element and trigger download
+    const downloadUrl = `${API}api/download-model/${modelId}/`;
+    window.location.href = downloadUrl;
+    addLog(`Downloading model: ${modelId}`);
+  };
+
+  // Connect to SSE stream
+  useEffect(() => {
+    console.log("Setting up SSE stream"); // Debug log
+    const eventSource = new EventSource(`${API}api/stream/`);
+
+    eventSource.onopen = () => {
+      setConnected(true);
+      addLog("Connected to SSE stream");
+    };
+
+    eventSource.onerror = (error) => {
+      setConnected(false);
+      addLog("SSE connection error. Reconnecting...");
+      // The browser will automatically try to reconnect
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as TrainingStep;
+
+        setSteps((prev) => ({
+          ...prev,
+          [data.id]: data,
+        }));
+
+        // Log the step change
+        const statusEmoji =
+          data.status === "completed"
+            ? "✅"
+            : data.status === "processing"
+            ? "⏳"
+            : data.status === "error"
+            ? "❌"
+            : "⏱️";
+
+        addLog(`${statusEmoji} Step ${data.id} (${data.name}): ${data.status}`);
+
+        // Update progress based on steps
+        const stepProgress = (data.id / 9) * 100;
+        setProgress(stepProgress);
+        
+        // Update current model based on the step
+        const modelIndex = Math.min(Math.floor((stepProgress / 100) * models.length), models.length - 1);
+        setCurrentModel(models[modelIndex]);
+        
+        // Update time remaining (a simple simulation)
+        const remainingPercentage = 1 - stepProgress / 100;
+        setTimeRemaining(Math.max(0, Math.round(300 * remainingPercentage))); // 300 seconds as example
+
+        // Log details if present
+        if (data.details && Object.keys(data.details).length > 0) {
+          const detailsStr = Object.entries(data.details)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(", ");
+
+          if (detailsStr) {
+            addLog(`   Details: ${detailsStr}`);
           }
-          return 100
         }
 
-        return Math.min(newProgress, 100)
-      })
-    }, 100)
+        // Check if this is the final step and it's completed
+        if (data.id === 9 && data.status === "completed") {
+          setTrainingComplete(true);
+          setIsTraining(false);
 
-    // Cleanup
-    return () => clearInterval(interval)
-  }, [isTraining, datasetSize, modelComplexity, onComplete])
+          // Save model info to localStorage
+          if (data.details && data.details.model_name) {
+            const modelData = {
+              model_name: data.details.model_name,
+              training_date: new Date().toISOString(),
+              dataset_id: datasetId,
+              dataset_name: datasetName,
+            };
 
-  if (!isTraining) {
-    return null
-  }
+            localStorage.setItem("trainedModel", JSON.stringify(modelData));
+            addLog(
+              `Training complete! Model ${data.details.model_name} is ready for download.`
+            );
+          }
+        }
+      } catch (error) {
+        addLog(
+          `Error parsing SSE data: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    };
+
+    // Cleanup function
+    return () => {
+      eventSource.close();
+      addLog("Disconnected from SSE stream");
+    };
+  }, [datasetId, datasetName]);
+
+  // Reset progress when training is started or stopped
+  useEffect(() => {
+    if (!isTraining) {
+      setProgress(0);
+      setCurrentModel("Preparing data...");
+      setTimeRemaining(0);
+      setError(null);
+    }
+  }, [isTraining]);
 
   // Format time remaining
   const formatTimeRemaining = (seconds: number) => {
-    if (seconds < 60) return `${seconds} seconds`
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}m ${remainingSeconds}s`
-  }
+    if (seconds < 60) return `${seconds} seconds`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
 
   return (
     <Card className="mb-6">
@@ -97,29 +249,78 @@ export function TrainingProgress({ isTraining, datasetSize, modelComplexity, onC
         <div className="flex justify-between items-center">
           <div>
             <CardTitle className="text-lg flex items-center">
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              Training Models
+              {isTraining ? (
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-5 w-5 mr-2" />
+              )}
+              {isTraining ? "Training Models" : "Model Training"}
             </CardTitle>
-            <CardDescription>Currently training: {currentModel}</CardDescription>
+            <CardDescription>
+              {isTraining ? `Currently training: ${currentModel}` : "Start training to build your model"}
+            </CardDescription>
           </div>
           <div className="flex items-center text-sm text-muted-foreground">
-            <Clock className="h-4 w-4 mr-1" />
-            {timeRemaining > 0 ? (
-              <span>Estimated time remaining: {formatTimeRemaining(timeRemaining)}</span>
+            {isTraining && timeRemaining > 0 ? (
+              <div className="flex items-center">
+                <Clock className="h-4 w-4 mr-1" />
+                <span>Estimated time remaining: {formatTimeRemaining(timeRemaining)}</span>
+              </div>
+            ) : isTraining ? (
+              <div className="flex items-center">
+                <Clock className="h-4 w-4 mr-1" />
+                <span>Finalizing results...</span>
+              </div>
             ) : (
-              <span>Finalizing results...</span>
+              <div className="flex items-center">
+                <span>Dataset ID: {datasetId || "None selected"}</span>
+              </div>
             )}
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <Progress value={progress} className="h-2" />
+          {isTraining ? (
+            <Progress value={progress} className="h-2" />
+          ) : (
+            <div className="flex justify-between gap-4">
+              <Button 
+                variant="default" 
+                onClick={startTraining}
+                disabled={!datasetId}
+                className="flex-1"
+              >
+                Start Training
+              </Button>
+              
+              {trainingComplete && (
+                <Button 
+                  variant="outline" 
+                  onClick={downloadModel}
+                  className="flex-1"
+                >
+                  Download Trained Model
+                </Button>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center text-sm text-destructive">
               <AlertCircle className="h-4 w-4 mr-2" />
               {error}
+            </div>
+          )}
+          
+          {log.length > 0 && (
+            <div className="mt-4 border rounded-md p-3 bg-muted/50 h-32 overflow-y-auto">
+              <h4 className="text-sm font-medium mb-2">Training Log</h4>
+              <div className="space-y-1 text-xs font-mono">
+                {log.map((entry, index) => (
+                  <div key={index} className="text-muted-foreground">{entry}</div>
+                ))}
+              </div>
             </div>
           )}
         </div>
