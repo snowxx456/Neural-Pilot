@@ -1,5 +1,5 @@
 from django.urls import path
-from api.views import correlation, precision_recall, roc_curve, feature_importance, confusion_matrix, health_check, upload_dataset, get_dataset, search_dataset, model_training , select_dataset, download_dataset, sse_stream, start_preprocessing, select_dataset,data_visualization,start_model_training,sse_stream_model, download_cleaned_dataset, download_model
+from api.views import correlation, precision_recall, roc_curve, feature_importance, confusion_matrix, health_check, upload_dataset, get_dataset, search_dataset, model_training , select_dataset, download_dataset, sse_stream, start_preprocessing, select_dataset,data_visualization,start_model_training,sse_stream_model, download_cleaned_dataset, download_model, sse_stream_model_results
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/stream/', sse_stream_model, name='sse_stream_model'),  # Note the trailing slash
     path('api/train/<int:id>/', start_model_training,name="start_model_training"),  # Note the trailing slash
     path('api/download-model/<str:model_id>/', download_model, name='download-model'),
+    path('api/model/stream/', sse_stream_model_results, name='model_results_stream'),  
 
 ]
 

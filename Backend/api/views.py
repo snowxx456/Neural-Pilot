@@ -29,8 +29,6 @@ from model.modeltraining.targetcolumn import TargetColumnRecommender  # Your tar
 from model.modeltraining.data_load import DataLoader  # Your data loading logic
 from model.modeltraining.visualization import VisualizationHandler  # Your visualization logic
 from model.modeltraining.model_training import ModelTrainer  # Your model training logic
-
-
 import numpy as np
 from numpy import inf, isnan
 
@@ -50,6 +48,9 @@ training_steps = {
 
 # Lock for thread-safe updates to training_steps
 training_steps_lock = threading.Lock()
+
+model_results_data = None
+model_results_lock = threading.Lock()
 
 def event_stream_model():
     """Generate SSE data for model training progress"""
@@ -72,15 +73,43 @@ def event_stream_model():
                     })
                     yield f"data: {data}\n\n"
                     last_sent[step_id] = copy.deepcopy(current)
-        
+
         # Send a keep-alive comment to prevent connection timeouts
         yield f": keepalive\n\n"
         time.sleep(0.1)  # Poll for updates every 100ms
+        
+def event_stream_model_results():
+    """Generate SSE data for model results"""
+    last_sent = None
+    
+    while True:
+        with model_results_lock:
+            # Check if we have new results
+            if model_results_data is not None and model_results_data != last_sent:
+                data = json.dumps({
+                    "type": "model_results",
+                    "data": model_results_data
+                })
+                yield f"data: {data}\n\n"
+                last_sent = copy.deepcopy(model_results_data)
+        
+        # Send a keep-alive comment to prevent connection timeouts
+        yield f": keepalive\n\n"
+        time.sleep(0.1)  #
 
 @csrf_exempt
 def sse_stream_model(request):
     """Stream SSE data to clients"""
     response = StreamingHttpResponse(event_stream_model(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+    response['Access-Control-Allow-Origin'] = '*'  # Allow cross-origin requests
+    return response
+
+@csrf_exempt
+def sse_stream_model_results(request):
+    """Stream SSE data of model results to clients"""
+    response = StreamingHttpResponse(event_stream_model_results(), content_type='text/event-stream')
     response['Cache-Control'] = 'no-cache'
     response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
     response['Access-Control-Allow-Origin'] = '*'  # Allow cross-origin requests
@@ -92,6 +121,12 @@ def update_step_status_model(step_id, status, details=None):
         training_steps[step_id]["status"] = status
         if details is not None:
             training_steps[step_id]["details"] = details
+
+def update_model_results(results):
+    """Update the model results data that will be streamed to clients"""
+    with model_results_lock:
+        global model_results_data
+        model_results_data = results
 
 @csrf_exempt
 def start_model_training(request,id):
