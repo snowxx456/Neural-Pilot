@@ -2,6 +2,7 @@
 import type { ModelResult } from "@/lib/types"
 import { Chart } from "@/components/ui/chart"
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { TooltipProps } from "recharts"
 
 interface ModelComparisonChartProps {
   models: ModelResult[]
@@ -33,9 +34,11 @@ export function ModelComparisonChart({ models }: ModelComparisonChartProps) {
               label={{ value: "Training Time (s)", angle: 90, position: "insideRight" }}
             />
             <Tooltip
-              formatter={(value, name) => {
-                if (name === "trainingTime") return [`${value.toFixed(2)}s`, "Training Time"]
-                return [`${value}%`, name.charAt(0).toUpperCase() + name.slice(1)]
+              formatter={(value: number | string, name: string) => {
+                if (name === "trainingTime") {
+                  return [typeof value === 'number' ? `${value.toFixed(2)}s` : value, "Training Time"];
+                }
+                return [`${value}%`, name.charAt(0).toUpperCase() + name.slice(1)];
               }}
             />
             <Legend />
