@@ -37,6 +37,12 @@ const TrainingProgress: React.FC = () => {
   
   // Start training function
   const startTraining = async () => {
+    const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/?$/, '/');
+    if (!datasetId) {
+      addLog('Error: No dataset selected');
+      return;
+    }
+    
     try {
       const response = await fetch(`${API}api/train/${datasetId}/`, {
         method: 'POST',

@@ -30,6 +30,7 @@ from model.modeltraining.data_load import DataLoader  # Your data loading logic
 from model.modeltraining.visualization import VisualizationHandler  # Your visualization logic
 from model.modeltraining.model_training import ModelTrainer  # Your model training logic
 
+
 import numpy as np
 
 logger = logging.getLogger(__name__)        
@@ -952,3 +953,43 @@ def precision_recall(request):
             {"error": f"Failed to generate precision-recall curve: {str(e)}"}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['GET'])
+def download_cleaned_dataset(request, id):
+    try:
+        # Get the dataset object
+        dataset = Dataset.objects.get(id=id)
+        
+        # Get the absolute file path
+        if dataset.file.name.startswith('/'):
+            file_path = dataset.file.name.lstrip('/')
+        else:
+            file_path = dataset.file.name
+            
+        full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        
+        # Check if file exists
+        if not os.path.exists(full_path):
+            print(f"File not found at: {full_path}")
+            return Response({"error": "File not found"}, status=404)
+        
+        # For file downloads, we need to use Django's HttpResponse
+        # We can't use DRF's Response for binary file downloads
+        with open(full_path, 'rb') as file:
+            response = HttpResponse(
+                file.read(),
+                content_type='text/csv'
+            )
+            
+        # Set filename in Content-Disposition header
+        filename = os.path.basename(full_path)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+        
+    except Dataset.DoesNotExist:
+        print(f"Dataset with ID {id} not found")
+        return Response({"error": "Dataset not found"}, status=404)
+    except Exception as e:
+        print(f"Download error: {str(e)}")
+        return Response({"error": str(e)}, status=500)

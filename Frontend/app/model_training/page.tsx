@@ -251,15 +251,6 @@ const ModelTrainingPage: React.FC = () => {
         </div>
       </main>
 
-      <footer className={styles.footer}>
-        <a
-          href="https://your-website.com"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by Your Company
-        </a>
-      </footer>
     </div>
   );
 };
