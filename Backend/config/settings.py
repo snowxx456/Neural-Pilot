@@ -170,13 +170,4 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880   # 5MB
 
 
-DEBUG = False
-ALLOWED_HOSTS = ['your-domain.com', 'www.your-domain.com', 'your-server-ip']
 
-
-#production work 
-# # Add proper security settings
-# SECURE_HSTS_SECONDS = 3600
-# SECURE_SSL_REDIRECT = True
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
