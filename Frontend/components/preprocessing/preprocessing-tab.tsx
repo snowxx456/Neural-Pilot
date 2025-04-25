@@ -22,12 +22,10 @@ import { Button } from "@/components/ui/button";
 import { PreprocessingStatus, PreprocessingStep } from "@/lib/types";
 import { DataTable } from "./data-table";
 import { ProcessingStep } from "./processing-step";
-import { cn } from "@/lib/utils";
 const API_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8000/";
-
+import { useRouter } from "next/navigation";
 interface PreprocessingTabProps {
   datasetName: string;
-  onVisualize: () => void;
 }
 
 const INITIAL_STEPS: PreprocessingStep[] = [
@@ -75,10 +73,7 @@ const INITIAL_STEPS: PreprocessingStep[] = [
   },
 ];
 
-export function PreprocessingTab({
-  datasetName,
-  onVisualize,
-}: PreprocessingTabProps) {
+export function PreprocessingTab({ datasetName }: PreprocessingTabProps) {
   const [status, setStatus] = useState<PreprocessingStatus>("idle");
   const [sampleData, setSampleData] = useState<any[]>([]);
   const [steps, setSteps] = useState<PreprocessingStep[]>(INITIAL_STEPS);
@@ -88,6 +83,7 @@ export function PreprocessingTab({
   const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const [datasetId, setDatasetId] = useState<any | null>(null);
   const [name, setDatasetName] = useState<string>("");
+  const router = useRouter();
 
   // Load dataset info from localStorage once on component mount
   useEffect(() => {
@@ -186,10 +182,16 @@ export function PreprocessingTab({
             setStatus("completed");
 
             // Set sample data from the backend if it exists
-            if (data.sample) {
+            // Update this part to ensure it's actually executing
+            if (
+              data.sample &&
+              Array.isArray(data.sample) &&
+              data.sample.length > 0
+            ) {
               setSampleData(data.sample);
+              console.log("Sample data received:", data.sample);
             } else {
-              // Fallback to dummy data if no sample is provided
+              console.log("No sample data received, using fallback data");
               setSampleData([
                 { id: 1, feature1: "Value 1", feature2: 42, target: 1 },
                 { id: 2, feature1: "Value 2", feature2: 28, target: 0 },
@@ -369,7 +371,7 @@ export function PreprocessingTab({
               <Button
                 variant="secondary"
                 size="lg"
-                onClick={onVisualize}
+                onClick={() => router.push("/visualization")}
                 className="gap-2 bg-chart-3/20 hover:bg-chart-3/30 transition-colors relative group overflow-hidden"
               >
                 <div className="absolute inset-0 bg-chart-3/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -439,9 +441,11 @@ export function PreprocessingTab({
               </p>
             </div>
 
-            <div className="glass-effect rounded-xl overflow-hidden border border-primary/20 relative group">
+            <div className="glass-effect rounded-xl overflow-hidden border border-primary/20 relative group w-full">
               <div className="absolute inset-0 bg-gradient-to-br from-chart-1/5 via-transparent to-chart-2/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <DataTable data={sampleData} />
+              <div className="w-full max-w-full">
+                <DataTable data={sampleData} />
+              </div>
             </div>
           </motion.div>
         )}
