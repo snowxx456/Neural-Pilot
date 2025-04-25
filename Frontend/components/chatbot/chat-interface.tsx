@@ -1,5 +1,3 @@
-// chat-interface
-
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -7,6 +5,7 @@ import { Message, Dataset } from "@/lib/types";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { DatasetGrid } from "@/components/datasets/dataset-grid";
+import { ToastAction } from "@/components/ui/toast";
 
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +45,7 @@ export function ChatInterface() {
         role: "assistant",
         content: `I've found some datasets related to "${content}". Here are my recommendations:`,
       };
+
       setMessages((prev) => [...prev, newAssistantMessage]);
 
       // Transform the API response to match our Dataset interface
@@ -65,11 +65,19 @@ export function ChatInterface() {
 
       setDatasets(formattedDatasets);
 
-      if (formattedDatasets.length === 0) {
+      // Show toast notification based on results
+      if (formattedDatasets.length > 0) {
+        toast({
+          title: `${formattedDatasets.length} datasets found`,
+          description: "Select your dataset",
+          action: <ToastAction altText="Select">Okay</ToastAction>,
+        });
+      } else {
         toast({
           title: "No datasets found",
           description: "Try a different search query",
           variant: "destructive",
+          action: <ToastAction altText="Try again">Try Again</ToastAction>,
         });
       }
     } catch (error) {
@@ -101,13 +109,18 @@ export function ChatInterface() {
     toast({
       title: "File uploaded",
       description: `Your dataset "${file.name}" has been uploaded successfully. Switch to the preprocessing tab to continue.`,
-      variant: "default",
     });
   };
 
   const handleSelectDataset = (dataset: Dataset) => {
     // Here you would implement the logic for when a user selects a dataset
     console.log("Selected dataset:", dataset);
+    // Show a toast when dataset is selected
+    toast({
+      title: "Dataset selected",
+      description: `You've selected "${dataset.title}"`,
+      action: <ToastAction altText="Proceed">Proceed</ToastAction>,
+    });
     // This would typically navigate to the next step in your application
   };
 
@@ -124,8 +137,6 @@ export function ChatInterface() {
       <div className="flex-1 overflow-hidden flex flex-col">
         {/* Chat messages and dataset grid - takes up remaining space */}
         <div className="flex-1 overflow-y-auto py-4 pb-20">
-          {" "}
-          {/* Added bottom padding to ensure content isn't hidden behind input */}
           {messages.map((message) => (
             <ChatMessage
               key={message.id}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import type { ConfusionMatrixData } from "@/lib/types"
-import dotenv from "dotenv"
+import * as dotenv from "dotenv"
 
 dotenv.config()
 

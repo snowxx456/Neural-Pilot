@@ -1,14 +1,16 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { ThemeProvider } from '@/components/theme-provider';
-import { Navbar } from '@/components/layout/navbar';
+import "./globals.css";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Navbar } from "@/components/layout/navbar";
+import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'NEORO PILOT - Auto Machine Learning Pipeline',
-  description: 'Advanced AutoML platform for effortless machine learning model creation',
+  title: "NEORO PILOT - Auto Machine Learning Pipeline",
+  description:
+    "Advanced AutoML platform for effortless machine learning model creation",
 };
 
 export default function RootLayout({
@@ -27,6 +29,7 @@ export default function RootLayout({
         >
           <Navbar />
           {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

@@ -168,3 +168,6 @@ MEDIA_URL = '/media/'  # URL prefix for accessing files
 # Security settings for file uploads
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880   # 5MB
+
+
+
