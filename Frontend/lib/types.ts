@@ -30,19 +30,21 @@ export interface PreprocessingStep {
 
 
 // Column types that can be detected in data
-export type ColumnType = 'string' | 'number' | 'boolean' | 'date';
+export type ColumnType = 'string' | 'number' | 'boolean' | 'date' | 'datetime' |'numeric' | 'categorical'| 'boolean' ;
 
 // Chart types that can be recommended
-export type ChartType = 'bar' | 'line' | 'pie' | 'scatter' | 'donut';
+export type ChartType = 'bar' | 'line' | 'pie' | 'scatter' | 'donut' | 'area' | 'histogram';
 
 // A column in a dataset with metadata
 export interface ColumnMetadata {
   name: string;
   type: ColumnType;
-  unique: number;
+  uniqueValues?: number;
   missing: number;
-  numeric: boolean;
-  categorical: boolean;
+  min?: number | null;
+  max?: number | null;
+  mean?: number | null;
+  mode?: string | number | null;
 }
 
 // A chart recommendation based on data characteristics
@@ -76,6 +78,9 @@ export interface ChartConfig {
   showGrid: boolean;
   showTooltip: boolean;
   animation: boolean;
+  stacked?: boolean;
+  area?: boolean;
+  filter?: Record<string, any>;
 }
 
 export interface ModelMetrics {

@@ -20,7 +20,7 @@ export function VisualizationDashboard({ dataset, onReset }: VisualizationDashbo
   const [chartConfig, setChartConfig] = useState<ChartConfig | null>(null)
   
   useEffect(() => {
-    if (dataset.recommendations.length > 0) {
+    if (dataset.recommendations?.length > 0) {
       const recommendation = dataset.recommendations[0]
       setChartConfig({
         type: recommendation.type,

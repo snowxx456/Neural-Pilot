@@ -211,7 +211,7 @@
 'use client'
 // pages/model-training.tsx
 import React from 'react';
-import TrainingProgress from '@/components/model_training/Trainingprogress';
+import TrainingProgress from '@/components/model_training/TrainingProgress';
 import Head from 'next/head';
 import styles from './Training.module.css';
 

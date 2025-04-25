@@ -75,10 +75,10 @@ export function ChartControls({ config, setConfig, columns }: ChartControlsProps
     return Object.values(columns).filter(column => {
       if (axisType === 'x') {
         // X-axis can be numeric or categorical
-        return column.numeric || column.categorical;
+        return column.type === 'numeric' || column.type === 'categorical' || column.type === 'string';
       } else {
         // Y-axis should be numeric for most chart types
-        return column.numeric;
+        return column.type === 'number' || column.type === 'numeric';
       }
     });
   };

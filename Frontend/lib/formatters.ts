@@ -1,23 +1,35 @@
 // Format values for display
-export function formatValue(value: any): string {
-  if (value === undefined || value === null) {
-    return 'N/A'
+export const formatValue = (value: any): string => {
+  if (value === null || value === undefined || value === '') {
+    return 'N/A';
+  }
+
+  // Handle special numeric values
+  if (typeof value === 'string') {
+    if (value === 'Infinity') return '∞';
+    if (value === '-Infinity') return '-∞';
+    if (value === 'NaN') return 'N/A';
   }
   
   if (typeof value === 'number') {
-    // Round to 2 decimal places if it's a float
-    return Number.isInteger(value) ? value.toString() : value.toFixed(2)
-  }
-  
-  if (value instanceof Date) {
-    return value.toLocaleDateString()
+    if (!Number.isFinite(value)) {
+      return 'N/A';
+    }
+    // Format numbers with 2 decimal places if they have decimals
+    return Number.isInteger(value) ? 
+      value.toString() : 
+      value.toFixed(2);
   }
   
   if (typeof value === 'boolean') {
-    return value ? 'True' : 'False'
+    return value.toString();
   }
   
-  return String(value)
+  if (value instanceof Date) {
+    return value.toLocaleDateString();
+  }
+  
+  return String(value);
 }
 
 // Format dates for display

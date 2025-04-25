@@ -32,6 +32,7 @@ from model.modeltraining.model_training import ModelTrainer  # Your model traini
 
 
 import numpy as np
+from numpy import inf, isnan
 
 logger = logging.getLogger(__name__)        
 
@@ -993,3 +994,31 @@ def download_cleaned_dataset(request, id):
     except Exception as e:
         print(f"Download error: {str(e)}")
         return Response({"error": str(e)}, status=500)
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, float):
+            if obj == inf:
+                return "Infinity"
+            if obj == -inf:
+                return "-Infinity"
+            if isnan(obj):
+                return "NaN"
+        return super().default(obj)
+
+@api_view(['GET'])
+def visualization(request, id):
+    try:
+        # Your existing visualization code...
+        
+        # Use the custom encoder when returning the response
+        return Response(
+            data,
+            status=status.HTTP_200_OK,
+            json_dumps_params={'cls': CustomJSONEncoder}
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
