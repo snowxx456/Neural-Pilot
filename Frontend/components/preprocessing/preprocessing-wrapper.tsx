@@ -5,9 +5,6 @@ import { PreprocessingTab } from "@/components/preprocessing/preprocessing-tab";
 import { BrainCircuit } from 'lucide-react';
 
 export function PreprocessingWrapper() {
-  const handleVisualize = () => {
-    console.log('Visualize');
-  };
 
   return (
     <div className="glass-effect rounded-2xl border border-border/50 overflow-hidden">
@@ -24,7 +21,6 @@ export function PreprocessingWrapper() {
         <TabsContent value="preprocessing" className="p-0">
           <PreprocessingTab 
             datasetName="Iris Classification Dataset"
-            onVisualize={handleVisualize}
           />
         </TabsContent>
       </Tabs>

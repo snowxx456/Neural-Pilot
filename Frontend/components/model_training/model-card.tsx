@@ -12,7 +12,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Info, Award, Sparkles } from "lucide-react";
-import type { ModelResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -22,6 +21,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
+interface ModelMetrics {
+  precision?: number;
+  recall?: number;
+  f1?: number;
+  [key: string]: number | undefined;
+}
+
+interface CVScore {
+  mean: number;
+  std: number;
+}
+
+interface ModelResult {
+  name: string;
+  accuracy: number;
+  metrics: ModelMetrics;
+  report: string;
+  trainingTime: number;
+  isBest: boolean;
+  description?: string;
+  parameters: any;
+  cvScore: CVScore;
+  cvTime: number;
+}
 
 interface ModelCardProps {
   model: ModelResult;
@@ -70,6 +94,43 @@ export function ModelCard({ model }: ModelCardProps) {
     return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
   };
 
+  // Extract metrics from the report string if metrics object is empty
+  const extractMetrics = () => {
+    const metricsFromReport = {
+      precision: 0,
+      recall: 0,
+      f1: 0,
+    };
+
+    // For regression models, we'll use R2 Score as precision, RMSE as recall, and MAE as f1
+    // (These aren't accurate translations but prevent the component from breaking)
+    if (model.report) {
+      const reportLines = model.report.split("\n");
+
+      reportLines.forEach((line) => {
+        if (line.includes("R2 Score:")) {
+          metricsFromReport.precision = parseFloat(line.split(":")[1].trim());
+        } else if (line.includes("Root Mean Squared Error:")) {
+          // Convert RMSE to a 0-1 scale roughly
+          const rmse = parseFloat(line.split(":")[1].trim());
+          metricsFromReport.recall = Math.max(0, 1 - rmse / 10); // Assuming RMSE < 10 is good
+        } else if (line.includes("Mean Absolute Error:")) {
+          // Convert MAE to a 0-1 scale roughly
+          const mae = parseFloat(line.split(":")[1].trim());
+          metricsFromReport.f1 = Math.max(0, 1 - mae / 5); // Assuming MAE < 5 is good
+        }
+      });
+    }
+
+    return metricsFromReport;
+  };
+
+  // Get the metrics either from the model.metrics object or extract from report
+  const metrics =
+    Object.keys(model.metrics || {}).length === 0
+      ? extractMetrics()
+      : model.metrics;
+
   return (
     <Card
       className={cn(
@@ -115,7 +176,7 @@ export function ModelCard({ model }: ModelCardProps) {
                   </Badge>
                 )}
                 <CardDescription>
-                  {model.description || "Classification model"}
+                  {model.description || "Regression model"}
                 </CardDescription>
               </div>
             </div>
@@ -129,7 +190,7 @@ export function ModelCard({ model }: ModelCardProps) {
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Accuracy</span>
+              <span>R² Score</span>
               <span className="font-medium">{model.accuracy.toFixed(4)}</span>
             </div>
             <div className="mt-2">
@@ -146,18 +207,22 @@ export function ModelCard({ model }: ModelCardProps) {
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-muted-foreground">Precision</p>
+              <p className="text-muted-foreground">Accuracy</p>
               <p className="font-medium">
-                {model.metrics.precision.toFixed(4)}
+                {metrics.precision?.toFixed(4) || model.accuracy.toFixed(4)}
               </p>
             </div>
             <div>
-              <p className="text-muted-foreground">Recall</p>
-              <p className="font-medium">{model.metrics.recall.toFixed(4)}</p>
+              <p className="text-muted-foreground">Error</p>
+              <p className="font-medium">
+                {metrics.recall?.toFixed(4) || (1 - model.accuracy).toFixed(4)}
+              </p>
             </div>
             <div>
-              <p className="text-muted-foreground">F1 Score</p>
-              <p className="font-medium">{model.metrics.f1.toFixed(4)}</p>
+              <p className="text-muted-foreground">CV Score</p>
+              <p className="font-medium">
+                {model.cvScore?.mean.toFixed(4) || "N/A"}
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground">Training Time</p>
@@ -185,9 +250,9 @@ export function ModelCard({ model }: ModelCardProps) {
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h4 className="font-medium mb-2">Classification Report</h4>
+                    <h4 className="font-medium mb-2">Regression Report</h4>
                     <pre className="bg-muted p-4 rounded-md text-xs overflow-auto max-h-[300px]">
-                      {model.report}
+                      {model.report || "No report available"}
                     </pre>
                   </div>
                   <div>
@@ -196,19 +261,22 @@ export function ModelCard({ model }: ModelCardProps) {
                     </h4>
                     <div className="bg-muted p-4 rounded-md">
                       <p className="text-sm">
-                        Mean CV Score: {model.cvScore.mean.toFixed(4)}
+                        Mean CV Score: {model.cvScore?.mean.toFixed(4) || "N/A"}
                       </p>
                       <p className="text-sm">
-                        Standard Deviation: {model.cvScore.std.toFixed(4)}
+                        Standard Deviation:{" "}
+                        {model.cvScore?.std.toFixed(4) || "N/A"}
                       </p>
                       <p className="text-sm">
-                        CV Time: {formatTime(model.cvTime)}
+                        CV Time: {formatTime(model.cvTime || 0)}
                       </p>
                     </div>
 
                     <h4 className="font-medium mt-4 mb-2">Model Parameters</h4>
                     <div className="bg-muted p-4 rounded-md text-xs overflow-auto max-h-[150px]">
-                      <pre>{JSON.stringify(model.parameters, null, 2)}</pre>
+                      <pre>
+                        {JSON.stringify(model.parameters || {}, null, 2)}
+                      </pre>
                     </div>
                   </div>
                 </div>

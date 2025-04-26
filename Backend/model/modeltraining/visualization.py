@@ -1,11 +1,30 @@
 from .library import *
-from api.models import Dataset
 from django.conf import settings  # Import settings here
 import os
+from api.models import ModelResult
+from django.core.files import File
+from time import timezone
+import math
+import json
+
+import numpy as np
+
+def clean_json(data):
+    """Clean data to ensure it's JSON serializable"""
+    if isinstance(data, list):
+        return [clean_json(item) for item in data]
+    elif isinstance(data, dict):
+        return {k: clean_json(v) for k, v in data.items() 
+                if not (k == 'missing' and v != v)}  # Skip NaN values
+    elif isinstance(data, float) and math.isnan(data):
+        return None  # Convert NaN to null
+    else:
+        return data
+
 
 class VisualizationHandler():
     def __init__(self,data, best_model, best_model_name, results,feature_names,label_encoder,
-                probabilities=None, y_test=None, problem_type=None):
+                probabilities=None, y_test=None, problem_type=None,model_card=None):
         self.df = data
         self.best_model_name = best_model_name
         self.best_model = best_model
@@ -15,6 +34,7 @@ class VisualizationHandler():
         self.probabilities = probabilities
         self.y_test = y_test
         self.problem_type = problem_type
+        self.model_card = model_card
 
     def correlation_graph(self):
             try:
@@ -188,34 +208,53 @@ class VisualizationHandler():
         except Exception as e:
             return {"error": f"Could not prepare model comparison data: {str(e)}"}
     
-    def save_model(self, dataset_id=None, filename=None):
+    def save_model(self, dataset_id=None,correlation=None, feature_importance=None, confusion_matrix=None, roc_curve=None, precision_recall_curve=None):
         """Save the best model to a file and associate it with a dataset."""
-        
         
         if self.best_model is None:
             print("No best model to save.")
             return False
         
-        if filename is None:
-            filename = 'best_model.pkl'
+        filename = f"{self.best_model_name}.pkl"
+        model_dir = os.path.join(settings.MEDIA_ROOT, 'models')
+        os.makedirs(model_dir, exist_ok=True)
+        model_path = os.path.join(model_dir, filename) 
         
         try:
-            # Set up the file path
-            model_path = os.path.join(settings.MEDIA_ROOT, 'models', filename)
-            os.makedirs(os.path.dirname(model_path), exist_ok=True)
-            
-            # Save the entire pipeline (including preprocessor)
             joblib.dump(self.best_model['pipeline'], model_path)
-            print(f"\nBest model saved to {model_path}")
             
-            # If dataset_id is provided, associate the model with the dataset
-            if dataset_id:
-                dataset = Dataset.objects.get(id=dataset_id)
-                dataset.model_file = os.path.join('models', filename)
-                dataset.save()
-                print(f"Model associated with dataset: {dataset.name}")
+            try:
+                # First clean the data
+                cleaned_model_card = clean_json(self.model_card)
+                # Test if it can be serialized to JSON
+                json_str = json.dumps(cleaned_model_card)
+                # If no error, use the validated JSON
+                validated_model_card = json.loads(json_str)
+            except TypeError as json_error:
+                print(f"JSON serialization error: {json_error}")
+                # Create a simplified version of the model card
+                validated_model_card = []
+                for model in self.model_card:
+                    # Keep only serializable fields
+                    clean_model = {k: v for k, v in model.items() 
+                                if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
+                    validated_model_card.append(clean_model)
             
-            return dataset_id
+            # Save to database with validated JSON
+            with open(model_path, 'rb') as f:
+                django_file = File(f)
+                model = ModelResult.objects.create(
+                    dataset_id=dataset_id,
+                    results=validated_model_card,  # Use the validated model card
+                    model_file=django_file,
+                    correlation_matrix=correlation,
+                    feature_importance=feature_importance,
+                    confusion_matrix=confusion_matrix,
+                    precision_recall=precision_recall_curve,
+                    roc_curve=roc_curve,
+                )
+            
+            return model.id
         except Exception as e:
             print(f"\nError saving model: {str(e)}")
             return None

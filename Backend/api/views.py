@@ -4,7 +4,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework import status
 from django.conf import settings
 from django.http import FileResponse, HttpResponse
-from .models import Dataset, ModelTrainingResult
+from .models import Dataset, ModelTrainingResult, ModelResult
 import os
 import json
 import pandas as pd
@@ -55,8 +55,13 @@ model_results_lock = threading.Lock()
 def event_stream_model():
     """Generate SSE data for model training progress"""
     last_sent = copy.deepcopy(training_steps)
+    keepalive_counter = 0
     
     while True:
+        # Send a keep-alive comment every second
+        yield f": keepalive {keepalive_counter}\n\n"
+        keepalive_counter += 1
+        
         with training_steps_lock:
             # Check for changes in any step
             for step_id in training_steps:
@@ -65,38 +70,19 @@ def event_stream_model():
                 
                 # Send updates when status changes or details are updated
                 if current["status"] != last["status"] or current["details"] != last["details"]:
-                    data = json.dumps({
-                        "id": step_id,
-                        "name": current["name"],
-                        "status": current["status"],
-                        "details": current["details"]
-                    })
-                    # Make sure there are exactly two newlines after data
-                    yield f"data: {data}\n\n"
-                    last_sent[step_id] = copy.deepcopy(current)
-
-        # Send a keep-alive comment every second instead of every 100ms
-        yield f": keepalive\n\n"
-        time.sleep(1)  # Increased from 0.1 to reduce event frequency
+                    try:
+                        data = json.dumps({
+                            "id": step_id,
+                            "name": current["name"],
+                            "status": current["status"],
+                            "details": current["details"]
+                        })
+                        yield f"data: {data}\n\n"
+                        last_sent[step_id] = copy.deepcopy(current)
+                    except Exception as e:
+                        print(f"Error sending SSE data: {e}")
         
-def event_stream_model_results():
-    """Generate SSE data for model results"""
-    last_sent = None
-    
-    while True:
-        with model_results_lock:
-            # Check if we have new results
-            if model_results_data is not None and model_results_data != last_sent:
-                data = json.dumps({
-                    "type": "model_results",
-                    "data": model_results_data
-                })
-                yield f"data: {data}\n\n"
-                last_sent = copy.deepcopy(model_results_data)
-        
-        # Send a keep-alive comment to prevent connection timeouts
-        yield f": keepalive\n\n"
-        time.sleep(0.1)  #
+        time.sleep(1)  # Check every second
 
 @csrf_exempt
 def sse_stream_model(request):
@@ -105,16 +91,9 @@ def sse_stream_model(request):
     response['Cache-Control'] = 'no-cache'
     response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
     response['Access-Control-Allow-Origin'] = '*'  # Allow cross-origin requests
+    response.timeout = 86400  # Set a long timeout (24 hours)
     return response
 
-@csrf_exempt
-def sse_stream_model_results(request):
-    """Stream SSE data of model results to clients"""
-    response = StreamingHttpResponse(event_stream_model_results(), content_type='text/event-stream')
-    response['Cache-Control'] = 'no-cache'
-    response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
-    response['Access-Control-Allow-Origin'] = '*'  # Allow cross-origin requests
-    return response
 
 def update_step_status_model(step_id, status, details=None):
     """Update the status and details of a training step"""
@@ -122,12 +101,6 @@ def update_step_status_model(step_id, status, details=None):
         training_steps[step_id]["status"] = status
         if details is not None:
             training_steps[step_id]["details"] = details
-
-def update_model_results(results):
-    """Update the model results data that will be streamed to clients"""
-    with model_results_lock:
-        global model_results_data
-        model_results_data = results
 
 @csrf_exempt
 def start_model_training(request,id):
@@ -145,124 +118,191 @@ def start_model_training(request,id):
     
     return JsonResponse({"status": "started", "message": "Model training started. Connect to SSE stream for updates."})
 
+
 def run_model_training_pipeline(id):
     """Run the entire model training pipeline with SSE updates"""
     try:
         # Step 1: Loading Dataset
         update_step_status_model(1, "processing", {"message": "Loading dataset..."})
-        time.sleep(0.5)  # Simulate processing time
         
-        dataset = Dataset.objects.get(id=id)
-        
-        # Get the absolute file path
-        if dataset.file.name.startswith('/'):
-            file_path = dataset.file.name.lstrip('/')
-        else:
-            file_path = dataset.file.name
+        try:
+            dataset = Dataset.objects.get(id=id)
             
-        file_path = os.path.join(settings.MEDIA_ROOT, file_path)
-        
-        # Check if file exists
-        if not os.path.exists(file_path):
-            print(f"File not found at: {file_path}")
-            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
-        target = TargetColumnRecommender(file_path=file_path)
-        
-        if not target.load_data():
-            update_step_status_model(1, "error", {"message": "Failed to load dataset"})
+            # Get the absolute file path
+            if dataset.file.name.startswith('/'):
+                file_path = dataset.file.name.lstrip('/')
+            else:
+                file_path = dataset.file.name
+                
+            file_path = os.path.join(settings.MEDIA_ROOT, file_path)
+            
+            # Check if file exists
+            if not os.path.exists(file_path):
+                print(f"File not found at: {file_path}")
+                update_step_status_model(1, "error", {"message": "File not found"})
+                return
+                
+            target = TargetColumnRecommender(file_path=file_path)
+            
+            if not target.load_data():
+                update_step_status_model(1, "error", {"message": "Failed to load dataset"})
+                return
+                
+            update_step_status_model(1, "completed", {"message": "Dataset loaded successfully"})
+        except Exception as e:
+            update_step_status_model(1, "error", {"message": f"Error loading dataset: {str(e)}"})
             return
-            
-        update_step_status_model(1, "completed", {"message": "Dataset loaded successfully"})
         
         # Step 2: Target Column Analysis
         update_step_status_model(2, "processing", {"message": "Analyzing potential target columns..."})
         
-        
-        if not target._validate_data():
-            update_step_status_model(2, "error", {"message": "Data validation failed"})
-            return
+        try:
+            if not target._validate_data():
+                update_step_status_model(2, "error", {"message": "Data validation failed"})
+                return
+                
+            target.analyze_for_target()
+            target_column = target.get_target_column()
+            recommendation_reason = target.get_recommendation_reason()
             
-        target.analyze_for_target()
-        target_column = target.get_target_column()
-        recommendation_reason = target.get_recommendation_reason()
-        
-        update_step_status_model(2, "completed", {
-            "target_column": target_column,
-            "reason": recommendation_reason
-        })
+            update_step_status_model(2, "completed", {
+                "target_column": target_column,
+                "reason": recommendation_reason
+            })
+        except Exception as e:
+            update_step_status_model(2, "error", {"message": f"Error analyzing target column: {str(e)}"})
+            return
         
         # Step 3: Data Validation
         update_step_status_model(3, "processing", {"message": "Validating dataset quality..."})
         
-        
-        file_path = target.get_file_path()
-        dataloader = DataLoader(file_path, target_column=target_column)
-        
-        if not dataloader.load_data():
-            update_step_status_model(3, "error", {"message": "Failed to load data for validation"})
-            return
+        try:
+            file_path = target.get_file_path()
+            dataloader = DataLoader(file_path, target_column=target_column)
             
-        issues = dataloader._check_data_issues(dataloader.df)
-        
-        update_step_status_model(3, "completed", {
-            "issues_found": len(issues) if issues else 0,
-            "data_shape": dataloader.df.shape
-        })
+            if not dataloader.load_data():
+                update_step_status_model(3, "error", {"message": "Failed to load data for validation"})
+                return
+                
+            issues = dataloader._check_data_issues(dataloader.df)
+            
+            update_step_status_model(3, "completed", {
+                "issues_found": len(issues) if issues else 0,
+                "data_shape": f"{dataloader.df.shape[0]} rows, {dataloader.df.shape[1]} columns"
+            })
+        except Exception as e:
+            update_step_status_model(3, "error", {"message": f"Error validating data: {str(e)}"})
+            return
         
         # Step 4: Data Preparation
         update_step_status_model(4, "processing", {"message": "Preparing data for modeling..."})
-        # time.sleep(0.5)  # Simulate processing time
         
-        dataloader.set_target()
-        x, y = dataloader.prepare_data()
-        df = dataloader.df
-        
-        update_step_status_model(4, "completed", {
-            "rows": x.shape[0],
-            "features": x.shape[1],
-            "problem_type": dataloader.problem_type
-        })
+        try:
+            dataloader.set_target()
+            x, y = dataloader.prepare_data()
+            df = dataloader.df
+            
+            update_step_status_model(4, "completed", {
+                "rows": x.shape[0],
+                "features": x.shape[1],
+                "problem_type": dataloader.problem_type
+            })
+        except Exception as e:
+            update_step_status_model(4, "error", {"message": f"Error preparing data: {str(e)}"})
+            return
         
         # Step 5: Model Training
         update_step_status_model(5, "processing", {"message": "Training multiple model candidates..."})
         
-        model_training = ModelTrainer(
-            target_column=target_column,
-            data=df,
-            x=x,
-            y=y,
-            problem_type=dataloader.problem_type,
-            preprocessor=dataloader.preprocessor
-        )
-        
-        # Training progress updates
-        models_to_train = ["LogisticRegression", "RandomForest", "GradientBoosting", "XGBoost", "SVM"]
-        total_models = len(models_to_train)
-        
-        # Simulate training progress
-        for i, model_name in enumerate(models_to_train):
-            update_step_status_model(5, "processing", {
-                "message": f"Training {model_name}...",
-                "progress": (i / total_models) * 100,
-                "current_model": model_name
+        try:
+            model_training = ModelTrainer(
+                target_column=target_column,
+                data=df,
+                x=x,
+                y=y,
+                problem_type=dataloader.problem_type,
+                preprocessor=dataloader.preprocessor
+            )
+            
+            # Define models to train based on problem type
+            if dataloader.problem_type == 'classification':
+                models_to_train = ["LogisticRegression", "RandomForest", "GradientBoosting", 
+                                  "XGBoost","LightGBM",'CatBoost', "SVM",'KNN','DecisionTree', "NaiveBayes","MLP"]
+            else:  # regression
+                models_to_train = ['LinearRegression',
+                'Ridge' ,
+                'Lasso',
+                'ElasticNet',
+                'RandomForest',
+                'GradientBoosting',
+                'XGBoost',
+                'LightGBM',
+                'CatBoost',
+                'SVR',
+                'KNN',
+                'DecisionTree',
+                'MLP',
+                'ExtraTrees',
+                'AdaBoost',
+                'SGDRegressor']
+                
+            total_models = len(models_to_train)
+            
+            # Train models one by one with progress updates
+            for i, model_name in enumerate(models_to_train):
+                update_step_status_model(5, "processing", {
+                    "message": f"Training {model_name}...",
+                    "progress": (i / total_models) * 100,
+                    "current_model": model_name
+                })
+                
+                try:
+                    # Show that training is starting
+                    update_step_status_model(5, "processing", {
+                        "message": f"Training {model_name}...",
+                        "progress": (i / total_models) * 100,
+                        "current_model": model_name
+                    })
+                    
+                    # Train the model (this should block until training is complete)
+                    result = model_training.train_single_model(model_name)
+                    
+                    # Verify that training completed successfully
+                    if result is None:
+                        raise Exception("Model training failed to complete")
+                    
+                    # Update UI with completion status
+                    update_step_status_model(5, "processing", {
+                        "message": f"Completed {model_name}",
+                        "progress": ((i + 1) / total_models) * 100,
+                        "current_model": model_name,
+                        "metrics": {
+                            "accuracy": float(result['accuracy']),
+                            "train_time": float(result['train_time'])
+                        }
+                    })
+                except Exception as e:
+                    update_step_status_model(5, "processing", {
+                        "message": f"Error training {model_name}: {str(e)}",
+                        "progress": ((i + 1) / total_models) * 100,
+                        "current_model": model_name
+                    })
+            
+            # Finalize training and get results
+            results= model_training.get_results()
+            model_card = model_training.get_formatted_results()
+            
+            update_step_status_model(5, "completed", {
+                "best_model": model_training.best_model_name,
+                "models_trained": list(results.keys()),
+                "total_models": len(results)
             })
-            time.sleep(1)  # Simulate training time
-        
-        # Actual training
-        results, best_model,m = model_training.train_models()
-        model_card = model_training.get_formatted_results()
-        print(f"Model card: {model_card}")
-        
-        update_step_status_model(5, "completed", {
-            "best_model": model_training.best_model_name,
-            "models_trained": list(results.keys()),
-            "total_models": len(results),
-            "model_card": model_card
-        })
-        
+        except Exception as e:
+            update_step_status_model(5, "error", {"message": f"Error in model training: {str(e)}"})
+            return        
         # Step 6: Hyperparameter Tuning
         update_step_status_model(6, "processing", {"message": f"Hypertuning {model_training.best_model_name}..."})
-        time.sleep(2)  # Simulate tuning time
+        
         
         # Skip hypertuning for now, but you could add actual hypertuning here
         hyper = model_training.hypertune_best_model()
@@ -296,33 +336,72 @@ def run_model_training_pipeline(id):
             results=results,
             feature_names=dataloader.feature_names,
             label_encoder=dataloader.label_encoder,
-            probabilities=best_model,
+            probabilities=model_training.get_probabilities(),
             y_test=model_training.y_test,
-            problem_type=dataloader.problem_type
+            problem_type=dataloader.problem_type,
+            model_card = model_card
         )
         
         # Generate visualizations
         viz_types = ["correlation", "feature_importance", "confusion_matrix", "roc_curve", "precision_recall"]
-        for i, viz_type in enumerate(viz_types):
-            update_step_status_model(8, "processing", {
-                "message": f"Generating {viz_type} visualization...",
-                "progress": (i / len(viz_types)) * 100,
-                "current_viz": viz_type
-            })
-            time.sleep(0.5)  # Simulate generation time
-        
+       
+        update_step_status_model(8, "processing", {
+            "message": f"Generating {viz_types[0]} visualization...",
+            "progress": (0 / len(viz_types)) * 100,
+            "current_viz": viz_types[0]
+        })
+        correlation = visualization.correlation_graph()
         update_step_status_model(8, "completed", {
-            "visualizations_generated": viz_types,
+            "visualizations_generated": viz_types[0],
+            "count": len(viz_types)
+        })
+        update_step_status_model(8, "processing", {
+            "message": f"Generating {viz_types[1]} visualization...",
+            "progress": (1 / len(viz_types)) * 100,
+            "current_viz": viz_types[1]
+        })
+        feature = visualization.feature_importance()
+        update_step_status_model(8, "completed", {
+            "visualizations_generated": viz_types[1],
+            "count": len(viz_types)
+        })
+        update_step_status_model(8, "processing", {
+            "message": f"Generating {viz_types[2]} visualization...",
+            "progress": (2 / len(viz_types)) * 100,
+            "current_viz": viz_types[2]
+        })
+        confusion = visualization.confusion_matrix()
+        update_step_status_model(8, "completed", {
+            "visualizations_generated": viz_types[2],
+            "count": len(viz_types)
+        })
+        update_step_status_model(8, "processing", {
+            "message": f"Generating {viz_types[3]} visualization...",
+            "progress": (3 / len(viz_types)) * 100,
+            "current_viz": viz_types[3]
+        })
+        roc = visualization.roc_curve()
+        update_step_status_model(8, "completed", {
+            "visualizations_generated": viz_types[3],
+            "count": len(viz_types)
+        })
+        update_step_status_model(8, "processing", {
+            "message": f"Generating {viz_types[4]} visualization...",
+            "progress": (4 / len(viz_types)) * 100,
+            "current_viz": viz_types[4]
+        })
+        precision = visualization.precision_recall_curve()
+        update_step_status_model(8, "completed", {
+            "visualizations_generated": viz_types[4],
             "count": len(viz_types)
         })
         
         # Step 9: Model Saving
         update_step_status_model(9, "processing", {"message": "Saving trained model..."})
-        time.sleep(0.5)  # Simulate processing time
         
-        model_path = visualization.save_model(model_training.best_model_name)
+        model_path = visualization.save_model(dataset_id=id,correlation=correlation, feature_importance=feature,confusion_matrix=confusion,roc_curve=roc,precision_recall_curve=precision)
         
-        
+        print(f"Model saved at: {model_path}")
         update_step_status_model(9, "completed", {
             "model_name": model_path,
         })
@@ -860,235 +939,87 @@ def select_dataset(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['GET'])
-def confusion_matrix(request):
+def confusion_matrix(request,id):
     try:
-        # Get the latest model training result
-        latest_training = ModelTrainingResult.objects.latest('created_at')
+        dataset = Dataset.objects.get(pk=id)
+        qs = dataset.model_results.all().order_by('-created_at')
         
-        # Initialize the visualization handler with the correct parameters
-        visualization = VisualizationHandler(
-            data=latest_training.data,
-            best_model=latest_training.best_model,
-            best_model_name=latest_training.best_model_name,
-            results=latest_training.results,
-            feature_names=latest_training.feature_names,
-            label_encoder=latest_training.label_encoder,
-            y_test=latest_training.y_test,
-            problem_type=latest_training.problem_type
-        )
+        latest = qs.first()
+        if not latest:
+            return Response({"error": "No model results for this dataset"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get confusion matrix data
-        matrix_data = visualization.confusion_matrix()
+        return Response(latest.confusion_matrix, status=status.HTTP_200_OK)
         
-        # Check for errors
-        if "error" in matrix_data:
-            return Response(
-                {"error": matrix_data["error"]}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Return formatted response
-        return Response(matrix_data, status=status.HTTP_200_OK)
-        
-    except ModelTrainingResult.DoesNotExist:
-        return Response(
-            {"error": "No model training results found"}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
+    except Dataset.DoesNotExist:
+        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response(
-            {"error": f"Failed to generate confusion matrix: {str(e)}"}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-    
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 @api_view(['GET'])
-def feature_importance(request):
+def feature_importance(request,id):
     try:
-        # Get the latest model training result
-        latest_training = ModelTrainingResult.objects.latest('created_at')
+        dataset = Dataset.objects.get(pk=id)
+        qs = dataset.model_results.all().order_by('-created_at')
         
-        # Initialize the visualization handler with the correct parameters
-        visualization = VisualizationHandler(
-            data=latest_training.data,
-            best_model=latest_training.best_model,
-            best_model_name=latest_training.best_model_name,
-            results=latest_training.results,
-            feature_names=latest_training.feature_names,
-            label_encoder=latest_training.label_encoder,
-            y_test=latest_training.y_test,
-            problem_type=latest_training.problem_type
-        )
+        latest = qs.first()
+        if not latest:
+            return Response({"error": "No model results for this dataset"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get feature importance data
-        importance_data = visualization.feature_importance()
+        return Response(latest.feature_importance, status=status.HTTP_200_OK)
         
-        # Check for errors
-        if isinstance(importance_data, dict) and "error" in importance_data:
-            return Response(
-                {"error": importance_data["error"]}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Return formatted response
-        return Response({
-            "importance": importance_data,
-            "modelName": latest_training.best_model_name
-        }, status=status.HTTP_200_OK)
-        
-    except ModelTrainingResult.DoesNotExist:
-        return Response(
-            {"error": "No model training results found"}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
+    except Dataset.DoesNotExist:
+        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response(
-            {"error": f"Failed to generate feature importance: {str(e)}"}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-    
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 @api_view(['GET'])
-def roc_curve(request):
+def roc_curve(request,id):
     try:
-        # Get the latest model training result
-        latest_training = ModelTrainingResult.objects.latest('created_at')
+        dataset = Dataset.objects.get(pk=id)
+        qs = dataset.model_results.all().order_by('-created_at')
         
-        # Make sure the probabilities are available
-        probabilities = latest_training.results.get(latest_training.best_model_name, {}).get('probabilities')
-        if probabilities is None:
-            return Response(
-                {"error": "Probability data not available for ROC curve"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        latest = qs.first()
+        if not latest:
+            return Response({"error": "No model results for this dataset"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Initialize the visualization handler with the correct parameters
-        visualization = VisualizationHandler(
-            data=latest_training.data,
-            best_model=latest_training.best_model,
-            best_model_name=latest_training.best_model_name,
-            results=latest_training.results,
-            feature_names=latest_training.feature_names,
-            label_encoder=latest_training.label_encoder,
-            probabilities=probabilities,  # Pass the probabilities
-            y_test=latest_training.y_test,
-            problem_type=latest_training.problem_type
-        )
+        return Response(latest.roc_curve, status=status.HTTP_200_OK)
         
-        # Get ROC curve data
-        roc_data = visualization.roc_curve()
-        
-        # Check for errors
-        if "error" in roc_data:
-            return Response(
-                {"error": roc_data["error"]}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Return formatted response
-        return Response(roc_data, status=status.HTTP_200_OK)
-        
-    except ModelTrainingResult.DoesNotExist:
-        return Response(
-            {"error": "No model training results found"}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
+    except Dataset.DoesNotExist:
+        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response(
-            {"error": f"Failed to generate ROC curve: {str(e)}"}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(['GET'])
+def correlation(request,id):
+    try:
+        dataset = Dataset.objects.get(pk=id)
+        qs = dataset.model_results.all().order_by('-created_at')
+        
+        latest = qs.first()
+        if not latest:
+            return Response({"error": "No model results for this dataset"}, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response(latest.correlation_matrix, status=status.HTTP_200_OK)
+        
+    except Dataset.DoesNotExist:
+        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 @api_view(['GET'])
-def correlation(request):
+def precision_recall(request,id):
     try:
-        # Get the latest model training result
-        latest_training = ModelTrainingResult.objects.latest('created_at')
+        dataset = Dataset.objects.get(pk=id)
+        qs = dataset.model_results.all().order_by('-created_at')
         
-        # Initialize the visualization handler with the correct parameters
-        visualization = VisualizationHandler(
-            data=latest_training.data,
-            best_model=latest_training.best_model,
-            best_model_name=latest_training.best_model_name,
-            results=latest_training.results,
-            feature_names=latest_training.feature_names,
-            label_encoder=latest_training.label_encoder,
-            y_test=latest_training.y_test,
-            problem_type=latest_training.problem_type
-        )
+        latest = qs.first()
+        if not latest:
+            return Response({"error": "No model results for this dataset"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get correlation matrix data
-        correlation_data = visualization.correlation_graph()  # Note the method name change
+        return Response(latest.precision_recall, status=status.HTTP_200_OK)
         
-        # Check for errors
-        if "error" in correlation_data:
-            return Response(
-                {"error": correlation_data["error"]}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Return formatted response
-        return Response(correlation_data, status=status.HTTP_200_OK)
-        
-    except ModelTrainingResult.DoesNotExist:
-        return Response(
-            {"error": "No model training results found"}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
+    except Dataset.DoesNotExist:
+        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response(
-            {"error": f"Failed to generate correlation matrix: {str(e)}"}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@api_view(['GET'])
-def precision_recall(request):
-    try:
-        # Get the latest model training result
-        latest_training = ModelTrainingResult.objects.latest('created_at')
-        
-        # Make sure the probabilities are available
-        probabilities = latest_training.results.get(latest_training.best_model_name, {}).get('probabilities')
-        if probabilities is None:
-            return Response(
-                {"error": "Probability data not available for precision-recall curve"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Initialize the visualization handler with the correct parameters
-        visualization = VisualizationHandler(
-            data=latest_training.data,
-            best_model=latest_training.best_model,
-            best_model_name=latest_training.best_model_name,
-            results=latest_training.results,
-            feature_names=latest_training.feature_names,
-            label_encoder=latest_training.label_encoder,
-            probabilities=probabilities,  # Pass the probabilities
-            y_test=latest_training.y_test,
-            problem_type=latest_training.problem_type
-        )
-        
-        # Get precision-recall curve data
-        pr_data = visualization.precision_recall_curve()
-        
-        # Check for errors
-        if "error" in pr_data:
-            return Response(
-                {"error": pr_data["error"]}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Return formatted response
-        return Response(pr_data, status=status.HTTP_200_OK)
-        
-    except ModelTrainingResult.DoesNotExist:
-        return Response(
-            {"error": "No model training results found"}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except Exception as e:
-        return Response(
-            {"error": f"Failed to generate precision-recall curve: {str(e)}"}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def download_cleaned_dataset(request, id):
@@ -1132,3 +1063,19 @@ def download_cleaned_dataset(request, id):
 
 
 
+@api_view(['GET'])
+def model_results(request, id):
+    try:
+        dataset = Dataset.objects.get(pk=id)
+        qs = dataset.model_results.all().order_by('-created_at')
+        
+        latest = qs.first()
+        if not latest:
+            return Response({"error": "No model results for this dataset"}, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response(latest.results, status=status.HTTP_200_OK)
+        
+    except Dataset.DoesNotExist:
+        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

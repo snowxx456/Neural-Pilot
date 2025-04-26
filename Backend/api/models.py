@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+import os
 
 # Create your models here.
 def dataset_upload_path(instance, filename):
@@ -28,4 +29,23 @@ class ModelTrainingResult(models.Model):
 
     class Meta:
         get_latest_by = 'created_at'
+
+def model_upload_path(instance, filename):
+    return os.path.join('models', filename)
+
+# ModelResult model
+class ModelResult(models.Model):
+    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='model_results')
+    results = models.JSONField()
+    model_file = models.FileField(upload_to=model_upload_path)  # Organized storage
+    created_at = models.DateTimeField(auto_now_add=True)
+    correlation_matrix = models.JSONField(null=True)
+    feature_importance = models.JSONField(null=True)
+    confusion_matrix = models.JSONField(null=True)
+    precision_recall = models.JSONField(null=True)
+    roc_curve = models.JSONField(null=True)
+
+    def __str__(self):
+        return self.model_id
+
 

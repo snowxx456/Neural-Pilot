@@ -174,6 +174,175 @@ class ModelTrainer ():
         # Return the parameters for the specific model or empty dict if not found
         return params.get(model_name, {})
     
+    def train_single_model(self, model_name):
+        """
+        Train and evaluate a single model by name.
+        
+        Args:
+            model_name (str): Name of the model to train
+            
+        Returns:
+            dict: Results for the trained model or None if training failed
+        """
+        # Check if we have the model
+        models = self._get_models()
+        if model_name not in models:
+            print(f"Model {model_name} not found. Available models: {list(models.keys())}")
+            return None
+        
+        print(f"\n{'='*50}")
+        print(f"Training {model_name}...")
+        
+        # Ensure we have split the data
+        if self.X_test is None or self.y_test is None:
+            # Split the data
+            if self.problem_type == 'classification':
+                try:
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        self.x, self.y, test_size=0.2, random_state=42, stratify=self.y
+                    )
+                except ValueError as e:
+                    print(f"Could not stratify split due to class imbalance. Using random split instead: {str(e)}")
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        self.x, self.y, test_size=0.2, random_state=42
+                    )
+            else:
+                X_train, X_test, y_train, y_test = train_test_split(
+                    self.x, self.y, test_size=0.2, random_state=42
+                )
+            
+            self.X_test = X_test
+            self.y_test = y_test
+            
+            print(f"\nTraining set size: {X_train.shape[0]} samples")
+            print(f"Test set size: {X_test.shape[0]} samples")
+        else:
+            # Use existing splits
+            X_train = self.x[~self.x.index.isin(self.X_test.index)]
+            y_train = self.y[~self.y.index.isin(self.y_test.index)]
+            X_test = self.X_test
+            y_test = self.y_test
+        
+        # Get the model
+        model = models[model_name]
+        
+        try:
+            # Create pipeline with preprocessor and model
+            pipeline = Pipeline(steps=[
+                ('preprocessor', self.preprocessor),
+                ('model', model)
+            ])
+            
+            # Cross-validation scoring
+            scoring = 'accuracy' if self.problem_type == 'classification' else 'r2'
+            
+            # Perform cross-validation
+            start_time = time.time()
+            cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5, scoring=scoring, n_jobs=-1)
+            cv_time = time.time() - start_time
+            
+            if self.problem_type == 'classification':
+                print(f"Cross-validation accuracy: {cv_scores.mean():.4f} ± {cv_scores.std():.4f} (time: {cv_time:.2f}s)")
+            else:
+                print(f"Cross-validation R2: {cv_scores.mean():.4f} ± {cv_scores.std():.4f} (time: {cv_time:.2f}s)")
+            
+            # Train the model on the full training set
+            start_time = time.time()
+            pipeline.fit(X_train, y_train)
+            train_time = time.time() - start_time
+            
+            # Make predictions
+            y_pred = pipeline.predict(X_test)
+            
+            # Evaluate the model
+            if self.problem_type == 'classification':
+                accuracy = accuracy_score(y_test, y_pred)
+                report = classification_report(y_test, y_pred)
+                conf_matrix = confusion_matrix(y_test, y_pred)
+                
+                # Extract detailed metrics for model card
+                report_dict = classification_report(y_test, y_pred, output_dict=True)
+                avg_precision = report_dict['weighted avg']['precision']
+                avg_recall = report_dict['weighted avg']['recall'] 
+                avg_f1 = report_dict['weighted avg']['f1-score']
+                
+                # For probability-based metrics (ROC, PR curve)
+                y_proba = None
+                if hasattr(pipeline, "predict_proba"):
+                    try:
+                        y_proba = pipeline.predict_proba(X_test)
+                        if y_proba.shape[1] == 2:  # Binary classification
+                            y_proba = y_proba[:, 1]
+                    except:
+                        pass  # Some models might not support predict_proba
+            else:  # regression
+                mse = mean_squared_error(y_test, y_pred)
+                rmse = np.sqrt(mse)
+                mae = mean_absolute_error(y_test, y_pred)
+                r2 = r2_score(y_test, y_pred)
+                evs = explained_variance_score(y_test, y_pred)
+                
+                report = (f"Mean Squared Error: {mse:.4f}\n"
+                        f"Root Mean Squared Error: {rmse:.4f}\n"
+                        f"Mean Absolute Error: {mae:.4f}\n"
+                        f"R2 Score: {r2:.4f}\n"
+                        f"Explained Variance Score: {evs:.4f}")
+                conf_matrix = None
+                y_proba = None
+                accuracy = r2  # Use R2 as the primary metric for regression
+                
+                # For regression, we'll use these as our metrics
+                avg_precision = mse  # Lower is better
+                avg_recall = mae     # Lower is better
+                avg_f1 = evs         # Higher is better
+            
+            # Store results
+            self.results[model_name] = {
+                'pipeline': pipeline,
+                'accuracy': accuracy,
+                'cv_scores': cv_scores,
+                'report': report,
+                'conf_matrix': conf_matrix,
+                'predictions': y_pred,
+                'probabilities': y_proba,
+                'true_values': y_test,
+                'train_time': train_time,
+                'cv_time': cv_time
+            }
+
+            self.model_card[model_name] = {
+                'accuracy': accuracy,
+                'precision': avg_precision,
+                'recall': avg_recall,
+                'f1_score': avg_f1,
+                'train_time': train_time,
+            } 
+            
+            # Print results
+            if self.problem_type == 'classification':
+                print(f"Test accuracy: {accuracy:.4f} (train time: {train_time:.2f}s)")
+            else:
+                print(f"Test R2: {accuracy:.4f} (train time: {train_time:.2f}s)")
+            print("\nPerformance Report:")
+            print(report)
+            
+            # Check if this is the best model so far
+            if self.best_model is None or accuracy > self.best_model['accuracy']:
+                self.best_model_name = model_name
+                self.best_model = self.results[model_name]
+                print(f"\nNew best model: {self.best_model_name} with {'accuracy' if self.problem_type == 'classification' else 'R2'}: {self.best_model['accuracy']:.4f}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"\nError training {model_name}: {str(e)}")
+            traceback.print_exc()
+            return None
+        
+    def get_results(self):
+        return self.results
+
+
     def train_models(self):
         """Train and evaluate multiple ML models with robust error handling."""
         # Split the data
@@ -305,7 +474,15 @@ class ModelTrainer ():
             print(f"\nBest model: {self.best_model_name} with {'accuracy' if self.problem_type == 'classification' else 'R2'}: {self.best_model['accuracy']:.4f}")
             probabilities = self.results[self.best_model_name]["probabilities"]
         
-        return self.results,probabilities,self.model_card
+        return self.results
+    
+    def get_probabilities(self):
+        """Get the probabilities of the best model."""
+        if self.best_model_name:
+            return self.results[self.best_model_name]["probabilities"]
+        else:
+            print("No best model found.")
+            return None
     
     def hypertune_best_model(self):
         """Hypertune the best model with Bayesian optimization."""

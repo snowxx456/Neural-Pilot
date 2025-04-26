@@ -87,9 +87,10 @@ export interface ChartConfig {
 }
 
 export interface ModelMetrics {
-  precision: number
-  recall: number
-  f1: number
+  precision: number;
+  recall: number;
+  f1: number;
+  [key: string]: number | undefined;
 }
 
 export interface CrossValidationScore {

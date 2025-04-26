@@ -23,9 +23,21 @@ interface TrainingStep {
   details: StepDetails;
 }
 
-export function TrainingProgress() {
-  const [datasetId, setDatasetId] = useState<any | null>(null);
-  const [datasetName, setDatasetName] = useState<any | null>(null);
+interface TrainingProgressProps {
+  startTraining: () => Promise<void>;
+  isTraining: boolean;
+  onTrainingComplete: () => void;
+  datasetId: number | null;
+  datasetName: string | null;
+}
+
+export function TrainingProgress({
+  startTraining,
+  isTraining,
+  onTrainingComplete,
+  datasetId,
+  datasetName,
+}: TrainingProgressProps) {
   const [progress, setProgress] = useState(0);
   const [currentModel, setCurrentModel] = useState("Preparing data...");
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -34,11 +46,10 @@ export function TrainingProgress() {
   const [connected, setConnected] = useState(false);
   const [trainingComplete, setTrainingComplete] = useState(false);
   const [steps, setSteps] = useState<{ [key: number]: TrainingStep }>({});
-  const [isTraining, setIsTraining] = useState(false);
 
   // Make sure the API URL has the correct format
   const API = (
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/"
   ).replace(/\/?$/, "/");
 
   // Models to simulate training
@@ -61,13 +72,6 @@ export function TrainingProgress() {
   };
 
   useEffect(() => {
-    const storedData = localStorage.getItem("selectedDataset");
-    if (storedData) {
-      const parsedData = JSON.parse(storedData);
-      setDatasetId(parsedData.id);
-      setDatasetName(parsedData.name);
-    }
-
     // Check if there's a saved model from previous training
     const savedModelData = localStorage.getItem("trainedModel");
     if (savedModelData) {
@@ -75,44 +79,6 @@ export function TrainingProgress() {
       addLog(`Previously trained model is available for download.`);
     }
   }, []);
-
-  // Start training function
-  const startTraining = async () => {
-    console.log("Start Training clicked"); // Debug log
-    console.log("Dataset ID:", datasetId); // Debug log
-
-    if (!datasetId) {
-      const errorMsg = "Error: No dataset selected";
-      addLog(errorMsg);
-      setError(errorMsg);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API}api/train/${datasetId}/`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to start training");
-      }
-
-      const data = await response.json();
-      addLog(`Training started: ${data.message}`);
-      setIsTraining(true);
-
-      // Reset training complete state when starting new training
-      setTrainingComplete(false);
-      // Clear any previously saved model data
-      localStorage.removeItem("trainedModel");
-    } catch (error) {
-      addLog(
-        `Error starting training: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
-  };
 
   // Download trained model function
   const downloadModel = () => {
@@ -139,6 +105,8 @@ export function TrainingProgress() {
 
   // Connect to SSE stream
   useEffect(() => {
+    if (!isTraining) return;
+
     console.log("Setting up SSE stream"); // Debug log
     let eventSource: EventSource | null = null;
     let retryCount = 0;
@@ -235,7 +203,7 @@ export function TrainingProgress() {
           // Check if this is the final step and it's completed
           if (data.id === 9 && data.status === "completed") {
             setTrainingComplete(true);
-            setIsTraining(false);
+            onTrainingComplete(); // Call parent callback when training completes
 
             // Save model info to localStorage
             if (data.details && data.details.model_name) {
@@ -266,7 +234,7 @@ export function TrainingProgress() {
 
     // Implement a periodic status checking mechanism if SSE disconnects
     const statusCheckInterval = setInterval(() => {
-      if (isTraining && !connected) {
+      if (isTraining && !connected && datasetId) {
         // If we're training but not connected to SSE, fetch status another way
         fetch(`${API}api/training-status/${datasetId}/`)
           .then((response) => {
@@ -280,6 +248,7 @@ export function TrainingProgress() {
             }
             if (data.completed) {
               setTrainingComplete(data.completed);
+              onTrainingComplete();
             }
             addLog("Retrieved training status via fallback endpoint");
           })
@@ -297,7 +266,7 @@ export function TrainingProgress() {
         addLog("Disconnected from SSE stream");
       }
     };
-  }, [datasetId, datasetName, isTraining, connected, API]);
+  }, [datasetId, datasetName, isTraining, connected, API, onTrainingComplete]);
 
   // Reset progress when training is started or stopped
   useEffect(() => {
@@ -351,7 +320,7 @@ export function TrainingProgress() {
               </div>
             ) : (
               <div className="flex items-center">
-                <span>Dataset ID: {datasetId || "None selected"}</span>
+                <span>Dataset: {datasetName || "None selected"}</span>
               </div>
             )}
           </div>
