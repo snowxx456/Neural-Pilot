@@ -214,7 +214,7 @@ export function DataSummary({ dataset }: DataSummaryProps) {
                         {column.type}
                       </Badge>
                     </TableCell>
-                    <TableCell>{column.uniqueValues ?? "N/A"}</TableCell>
+                    <TableCell>{column.unique ?? "N/A"}</TableCell>
                     <TableCell>{column.missing ?? 0}</TableCell>
                     <TableCell>{formatValue(column.min)}</TableCell>
                     <TableCell>{formatValue(column.max)}</TableCell>
