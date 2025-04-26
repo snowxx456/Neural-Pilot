@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { useRouter } from "next/navigation";
 
 interface DatasetCardProps {
   dataset: Dataset;
@@ -19,6 +21,7 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleDownload = async (
     e: React.MouseEvent<HTMLButtonElement>,
@@ -115,6 +118,17 @@ export function DatasetCard({ dataset, onClick }: DatasetCardProps) {
           title: "Dataset Selected",
           description:
             "Dataset has been successfully imported to your workspace",
+          action: (
+            <div className="mt-2">
+              <ToastAction
+                altText="Go to Preprocessing"
+                className="bg-primary hover:bg-primary/90 w-full"
+                onClick={() => router.push("/preprocessing")}
+              >
+                Preprocessing
+              </ToastAction>
+            </div>
+          ),
         });
       }
     } catch (error: any) {

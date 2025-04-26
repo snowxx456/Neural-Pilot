@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface DataTableProps {
   data: any[];
@@ -14,14 +14,23 @@ export function DataTable({ data }: DataTableProps) {
   const columns = Object.keys(data[0]);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
+    <div
+      className="w-full overflow-x-auto"
+      style={{
+        maxWidth: "100%",
+        cursor: "auto",
+        overflowX: "auto",
+        overscrollBehaviorX: "contain",
+        WebkitOverflowScrolling: "touch",
+      }}
+    >
+      <table style={{ width: "max-content", minWidth: "100%" }}>
         <thead>
           <tr className="border-b border-border/50">
             {columns.map((column) => (
               <th
                 key={column}
-                className="px-4 py-3 text-left text-sm font-medium text-muted-foreground bg-card/30"
+                className="px-4 py-3 text-left text-sm font-medium text-muted-foreground bg-card/30 whitespace-nowrap"
               >
                 {column}
               </th>
@@ -43,7 +52,7 @@ export function DataTable({ data }: DataTableProps) {
               {columns.map((column) => (
                 <td
                   key={`${rowIndex}-${column}`}
-                  className="px-4 py-3 text-sm"
+                  className="px-4 py-3 text-sm whitespace-nowrap"
                 >
                   {row[column]}
                 </td>

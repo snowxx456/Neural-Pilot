@@ -10,6 +10,7 @@ import { ToastAction } from "@/components/ui/toast";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 const API = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8000/";
+import { useRouter } from "next/navigation";
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
@@ -24,6 +25,7 @@ export function ChatInterface() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleSendMessage = async (content: string) => {
     const newUserMessage: Message = {
@@ -109,6 +111,17 @@ export function ChatInterface() {
     toast({
       title: "File uploaded",
       description: `Your dataset "${file.name}" has been uploaded successfully. Switch to the preprocessing tab to continue.`,
+      action: (
+        <div className="mt-2">
+          <ToastAction
+            altText="Go to Preprocessing"
+            className="bg-primary hover:bg-primary/90 w-full"
+            onClick={() => router.push("/preprocessing")}
+          >
+            Preprocessing
+          </ToastAction>
+        </div>
+      ),
     });
   };
 
@@ -119,7 +132,17 @@ export function ChatInterface() {
     toast({
       title: "Dataset selected",
       description: `You've selected "${dataset.title}"`,
-      action: <ToastAction altText="Proceed">Proceed</ToastAction>,
+      action: (
+        <div className="mt-2">
+          <ToastAction
+            altText="Go to Preprocessing"
+            className="bg-primary hover:bg-primary/90 w-full"
+            onClick={() => router.push("/preprocessing")}
+          >
+            Preprocessing
+          </ToastAction>
+        </div>
+      ),
     });
     // This would typically navigate to the next step in your application
   };

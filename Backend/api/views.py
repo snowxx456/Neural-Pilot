@@ -71,12 +71,13 @@ def event_stream_model():
                         "status": current["status"],
                         "details": current["details"]
                     })
+                    # Make sure there are exactly two newlines after data
                     yield f"data: {data}\n\n"
                     last_sent[step_id] = copy.deepcopy(current)
 
-        # Send a keep-alive comment to prevent connection timeouts
+        # Send a keep-alive comment every second instead of every 100ms
         yield f": keepalive\n\n"
-        time.sleep(0.1)  # Poll for updates every 100ms
+        time.sleep(1)  # Increased from 0.1 to reduce event frequency
         
 def event_stream_model_results():
     """Generate SSE data for model results"""
@@ -175,7 +176,7 @@ def run_model_training_pipeline(id):
         
         # Step 2: Target Column Analysis
         update_step_status_model(2, "processing", {"message": "Analyzing potential target columns..."})
-        time.sleep(0.5)  # Simulate processing time
+        
         
         if not target._validate_data():
             update_step_status_model(2, "error", {"message": "Data validation failed"})
@@ -192,7 +193,7 @@ def run_model_training_pipeline(id):
         
         # Step 3: Data Validation
         update_step_status_model(3, "processing", {"message": "Validating dataset quality..."})
-        time.sleep(0.5)  # Simulate processing time
+        
         
         file_path = target.get_file_path()
         dataloader = DataLoader(file_path, target_column=target_column)
@@ -210,7 +211,7 @@ def run_model_training_pipeline(id):
         
         # Step 4: Data Preparation
         update_step_status_model(4, "processing", {"message": "Preparing data for modeling..."})
-        time.sleep(0.5)  # Simulate processing time
+        # time.sleep(0.5)  # Simulate processing time
         
         dataloader.set_target()
         x, y = dataloader.prepare_data()

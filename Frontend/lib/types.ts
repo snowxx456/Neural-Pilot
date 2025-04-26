@@ -39,8 +39,10 @@ export type ChartType = 'bar' | 'line' | 'pie' | 'scatter' | 'donut' | 'area' | 
 export interface ColumnMetadata {
   name: string;
   type: ColumnType;
-  uniqueValues?: number;
+  unique: number; // Changed from uniqueValues?
   missing: number;
+  numeric: boolean; // Add this
+  categorical: boolean; // Add this
   min?: number | null;
   max?: number | null;
   mean?: number | null;
