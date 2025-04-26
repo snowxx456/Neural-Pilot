@@ -58,17 +58,17 @@ export function ChartControls({ config, setConfig, columns }: ChartControlsProps
     })
   }
   
-  const handleDownload = () => {
-    alert('Chart download functionality would be implemented here.')
-  }
+  // const handleDownload = () => {
+  //   alert('Chart download functionality would be implemented here.')
+  // }
   
-  const handleShare = () => {
-    const link = `https://data-viz-app.example/share/${Math.random().toString(36).substring(2, 10)}`
-    setShareLink(link)
-    navigator.clipboard.writeText(link)
-      .then(() => alert('Link copied to clipboard.'))
-      .catch(() => alert('Failed to copy link.'))
-  }
+  // const handleShare = () => {
+  //   const link = `https://data-viz-app.example/share/${Math.random().toString(36).substring(2, 10)}`
+  //   setShareLink(link)
+  //   navigator.clipboard.writeText(link)
+  //     .then(() => alert('Link copied to clipboard.'))
+  //     .catch(() => alert('Failed to copy link.'))
+  // }
   
   // Convert columns object to array and filter based on axis type
   const getColumnsForAxis = (axisType: 'x' | 'y'): ColumnMetadata[] => {
@@ -212,31 +212,6 @@ export function ChartControls({ config, setConfig, columns }: ChartControlsProps
             </div>
             
             <Separator className="opacity-10" />
-            
-            <div className="flex gap-2">
-              <Button 
-                variant="secondary" 
-                className="w-full glass"
-                onClick={handleDownload}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full glass"
-                onClick={handleShare}
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                Share
-              </Button>
-            </div>
-            
-            {shareLink && (
-              <div className="text-xs text-muted-foreground mt-2 break-all">
-                Link copied: {shareLink}
-              </div>
-            )}
           </div>
         </ScrollArea>
       </CardContent>

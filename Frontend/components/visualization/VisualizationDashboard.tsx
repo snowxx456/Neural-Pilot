@@ -197,14 +197,6 @@ export function VisualizationDashboard({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold gradient-text">Data Visualization</h2>
-        <Button
-          variant="outline"
-          onClick={onReset}
-          className="flex items-center gap-2 glass neon-border"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Upload New File
-        </Button>
       </div>
 
       <Tabs
