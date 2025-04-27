@@ -47,7 +47,7 @@ Bit-Storm Syndicate
 
 ## 📽 Demo & Deliverables
 * *Demo Video Link:* [Demo Video](https://youtu.be/example)
-* *PPT Link:* [Presentation](https://docs.google.com/presentation/d/example)
+* *PPT Link:* [Presentation](https://docs.google.com/presentation/d/11BqH7XQ8AfJfYi3ePiprhmIqL6-4jijU/edit?usp=sharing&ouid=115184565853677496864&rtpof=true&sd=true)
 
 ## ✅ Tasks & Bonus Checklist
 * ✅ *All team members completed the mandatory task:* Followed at least two official social channels and submitted the form.
