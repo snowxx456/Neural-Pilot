@@ -12,6 +12,7 @@ import {
 import { Loader2, Clock, AlertCircle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { list } from "postcss";
+import { fetchModelResults } from "@/lib/api";
 
 let id: number | null = null;
 let name: string | null = null;
@@ -72,6 +73,17 @@ export function TrainingProgress({
       className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent ${className}`}
     ></div>
   );
+  useEffect(() => {
+    const loadData = async () => {
+      console.log("Fetching model results...");
+      const data = await fetchModelResults();
+      if (data.length !== 0) {
+        setTrainingComplete(true);
+      }
+    };
+
+    loadData();
+  }, []);
 
   // Models to simulate training
   const models = [
@@ -239,14 +251,6 @@ export function TrainingProgress({
             onTrainingComplete(); // Call parent callback when training completes
 
             // Save model info to localStorage
-            if (data.details && data.details.model_name) {
-              const modelData = {
-                model_name: data.details.model_name,
-                training_date: new Date().toISOString(),
-                dataset_id: datasetId,
-                dataset_name: datasetName,
-              };
-            }
           }
         } catch (error) {
           addLog(
