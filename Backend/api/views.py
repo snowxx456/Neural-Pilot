@@ -307,7 +307,7 @@ def run_model_training_pipeline(id):
         
         
         # Skip hypertuning for now, but you could add actual hypertuning here
-        #hyper = model_training.hypertune_best_model()
+        hyper = model_training.hypertune_best_model()
         
         update_step_status_model(6, "completed", {
             "model": model_training.best_model_name,
