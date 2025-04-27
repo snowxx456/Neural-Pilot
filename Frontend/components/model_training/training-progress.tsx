@@ -75,16 +75,10 @@ export function TrainingProgress({
   );
   useEffect(() => {
     const loadData = async () => {
-      try {
-        console.log("Fetching model results...");
-        const data = await fetchModelResults();
-        if (data.length !== 0) {
-          setTrainingComplete(true);
-        } 
-      } catch (error) {
-        console.error("Failed to fetch model results:", error);
-        // Show error message to user
-        alert("Failed to load model results. Using mock data instead.");
+      console.log("Fetching model results...");
+      const data = await fetchModelResults();
+      if (data.length !== 0) {
+        setTrainingComplete(true);
       }
     };
 
