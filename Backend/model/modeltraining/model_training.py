@@ -1,5 +1,7 @@
 from .library import *
 
+np.random.seed(42)
+
 class ModelTrainer ():
     def __init__(self, problem_type,target_column,data,x,y,preprocessor=None):
         self.problem_type = problem_type

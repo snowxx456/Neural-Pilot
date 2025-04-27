@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import {
   Card,
@@ -63,6 +63,9 @@ export function TrainingProgress({
   const [trainingComplete, setTrainingComplete] = useState(false);
   const [steps, setSteps] = useState<{ [key: number]: TrainingStep }>({});
   const [isDownloading, setIsDownloading] = useState(false);
+  
+  // Reference to the log container div for auto-scrolling
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   // Make sure the API URL has the correct format
   const API = (
@@ -85,15 +88,34 @@ export function TrainingProgress({
     loadData();
   }, []);
 
+  // Auto-scroll to bottom when log changes
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [log]);
+
   // Models to simulate training
   const models = [
     "Preparing data...",
-    "LogisticRegression",
-    "RandomForest",
-    "GradientBoosting",
-    "XGBoost",
-    "SVM",
-    "NaiveBayes",
+    'Ridge',
+    'Lasso',
+    'ElasticNet', 
+    'RandomForest', 
+    'GradientBoosting', 
+    'LogisticRegression', 
+    'XGBoost', 
+    'LightGBM', 
+    'CatBoost', 
+    'SVM', 
+    'SVR', 
+    'KNN', 
+    'DecisionTree', 
+    'NaiveBayes', 
+    'MLP', 
+    'ExtraTrees', 
+    'AdaBoost', 
+    'SGDRegressor',
     "Finalizing results...",
   ];
 
@@ -118,12 +140,6 @@ export function TrainingProgress({
 
       // Construct the download URL
       const downloadUrl = `${API}api/download-model/${id}/`;
-
-      // For smaller files, you could use fetch:
-      // const response = await fetch(downloadUrl);
-      // if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
-      // const blob = await response.blob();
-      // const url = window.URL.createObjectURL(blob);
 
       // For simplicity and better handling of large files, direct browser download:
       const link = document.createElement("a");
@@ -249,8 +265,6 @@ export function TrainingProgress({
           if (data.id === 9 && data.status === "completed") {
             setTrainingComplete(true);
             onTrainingComplete(); // Call parent callback when training completes
-
-            // Save model info to localStorage
           }
         } catch (error) {
           addLog(
@@ -401,7 +415,10 @@ export function TrainingProgress({
           )}
 
           {log.length > 0 && (
-            <div className="mt-4 border rounded-md p-3 bg-muted/50 h-32 overflow-y-auto">
+            <div 
+              ref={logContainerRef}
+              className="mt-4 border rounded-md p-3 bg-muted/50 h-32 overflow-y-auto"
+            >
               <h4 className="text-sm font-medium mb-2">Training Log</h4>
               <div className="space-y-1 text-xs font-mono">
                 {log.map((entry, index) => (

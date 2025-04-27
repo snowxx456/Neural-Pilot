@@ -24,6 +24,7 @@ import { DataTable } from "./data-table";
 import { ProcessingStep } from "./processing-step";
 const API_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8000/";
 import { useRouter } from "next/navigation";
+
 interface PreprocessingTabProps {
   datasetName: string;
 }
@@ -441,9 +442,9 @@ export function PreprocessingTab({ datasetName }: PreprocessingTabProps) {
               </p>
             </div>
 
-            <div className="glass-effect rounded-xl overflow-hidden border border-primary/20 relative group w-full">
-              <div className="absolute inset-0 bg-gradient-to-br from-chart-1/5 via-transparent to-chart-2/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="w-full max-w-full">
+            <div className="glass-effect rounded-xl border border-primary/20 relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-chart-1/5 via-transparent to-chart-2/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <div className="w-full overflow-x-auto">
                 <DataTable data={sampleData} />
               </div>
             </div>
