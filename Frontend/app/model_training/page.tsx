@@ -14,11 +14,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw, Play, Loader2 } from "lucide-react";
 import { ModelCard } from "@/components/model_training/model-card";
 import { ModelComparisonChart } from "@/components/model_training/model-comparison-chart";
-import { FeatureImportanceChart } from "@/components/model_training/feature-importance-chart";
-import { ConfusionMatrixChart } from "@/components/model_training/confusion-matrix-chart";
-import { CorrelationMatrixChart } from "@/components/model_training/correlation-matrix-chart";
-import { RocCurveChart } from "@/components/model_training/roc-curve-chart";
-import { PrecisionRecallChart } from "@/components/model_training/precision-recall-chart";
 import { TrainingProgress } from "@/components/model_training/training-progress";
 import { fetchModelResults } from "@/lib/api";
 import type { ModelResult } from "@/lib/types";
@@ -326,7 +321,7 @@ export default function ModelsPage() {
           onValueChange={setActiveTab}
           className="space-y-8"
         >
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="models">Models</TabsTrigger>
             <TabsTrigger value="comparison">Comparison</TabsTrigger>
           </TabsList>

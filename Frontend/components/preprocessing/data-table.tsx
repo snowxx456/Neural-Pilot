@@ -14,23 +14,14 @@ export function DataTable({ data }: DataTableProps) {
   const columns = Object.keys(data[0]);
 
   return (
-    <div
-      className="w-full overflow-x-auto"
-      style={{
-        maxWidth: "100%",
-        cursor: "auto",
-        overflowX: "auto",
-        overscrollBehaviorX: "contain",
-        WebkitOverflowScrolling: "touch",
-      }}
-    >
-      <table style={{ width: "max-content", minWidth: "100%" }}>
+    <div className="w-full overflow-x-auto max-w-[calc(100vw-4rem)]">
+      <table className="w-full table-auto">
         <thead>
-          <tr className="border-b border-border/50">
+          <tr className="border-b border-border/50 bg-card/30">
             {columns.map((column) => (
               <th
                 key={column}
-                className="px-4 py-3 text-left text-sm font-medium text-muted-foreground bg-card/30 whitespace-nowrap"
+                className="sticky top-0 px-4 py-3 text-left text-sm font-medium text-muted-foreground whitespace-nowrap bg-card/30"
               >
                 {column}
               </th>
@@ -43,7 +34,7 @@ export function DataTable({ data }: DataTableProps) {
               key={rowIndex}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: rowIndex * 0.1 }}
+              transition={{ delay: rowIndex * 0.05 }}
               className={cn(
                 "border-b border-border/50 transition-colors",
                 "hover:bg-card/50"
