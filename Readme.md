@@ -46,7 +46,7 @@ Bit-Storm Syndicate
 * ✅ *Model Training*: Automatic training and evaluation across 15–17 models with metrics like precision, accuracy, and F1-score. Best model selection and downloadable artifacts included.
 
 ## 📽 Demo & Deliverables
-* *Demo Video Link:* [Demo Video](https://youtu.be/example)
+* *Demo Video Link:* [Demo Video](https://www.loom.com/share/2899a100803a45e881579c517cc1f2b5?sid=d8dab71b-50bd-4356-9190-9646c79ab574)
 * *PPT Link:* [Presentation](https://docs.google.com/presentation/d/11BqH7XQ8AfJfYi3ePiprhmIqL6-4jijU/edit?usp=sharing&ouid=115184565853677496864&rtpof=true&sd=true)
 
 ## ✅ Tasks & Bonus Checklist
