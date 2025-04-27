@@ -11,13 +11,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Play, Loader2 } from "lucide-react";
+import { RefreshCw, Play, Loader2, CheckCircle } from "lucide-react";
 import { ModelCard } from "@/components/model_training/model-card";
 import { ModelComparisonChart } from "@/components/model_training/model-comparison-chart";
 import { TrainingProgress } from "@/components/model_training/training-progress";
 import { fetchModelResults } from "@/lib/api";
 import type { ModelResult } from "@/lib/types";
 import { AnimatedBackground } from "@/components/model_training/animated-background";
+import { toast } from "@/components/ui/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function ModelsPage() {
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,7 @@ export default function ModelsPage() {
   const [datasetId, setDatasetId] = useState<number | null>(null);
   const [datasetName, setDatasetName] = useState<string | null>(null);
   const [showTrainingProgress, setShowTrainingProgress] = useState(false);
+  const [trainingComplete, setTrainingComplete] = useState(false);
   // Make sure the API URL has the correct format
   const API = (
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/"
@@ -53,7 +56,6 @@ export default function ModelsPage() {
           setModelResultsEmpty(true);
           console.log("No model results found.");
           return;
-        
         } else {
           setModelResultsEmpty(false);
         }
@@ -86,6 +88,7 @@ export default function ModelsPage() {
       }
       console.log("Model results refreshed successfully:", data);
       setModelResults(data);
+      setTrainingComplete(false);
     } catch (error) {
       console.error("Failed to refresh model results:", error);
       // Show error message to user
@@ -117,6 +120,7 @@ export default function ModelsPage() {
       const data = await response.json();
       console.log(`Training started: ${data.message}`);
       setIsTraining(true);
+      setTrainingComplete(false);
     } catch (error) {
       console.error(
         `Error starting training: ${
@@ -129,12 +133,23 @@ export default function ModelsPage() {
   const handleTrainingComplete = async () => {
     try {
       console.log("Training complete, fetching updated model results...");
+      // Automatically refresh the data when training completes
       const data = await fetchModelResults();
       console.log("Updated model results fetched successfully:", data);
       setModelResults(data);
+      
+
+      
+      // Set training complete status for alert display
+      setTrainingComplete(true);
     } catch (error) {
       console.error("Failed to fetch updated model results:", error);
-      alert("Training complete, but failed to fetch updated results.");
+      toast({
+        title: "Training Complete",
+        description: "Training complete, but failed to fetch updated results.",
+        variant: "destructive",
+        duration: 5000,
+      });
     } finally {
       setIsTraining(false);
     }
@@ -225,8 +240,6 @@ export default function ModelsPage() {
     );
   };
 
-  // Function to render visualization content or loading state
-
   // Function to render comparison content or loading state
   const renderComparisonContent = () => {
     if (isTraining || loading) {
@@ -306,7 +319,7 @@ export default function ModelsPage() {
           </div>
         </div>
 
-        
+        {showTrainingProgress && (
           <TrainingProgress
             startTraining={startTraining}
             isTraining={isTraining}
@@ -314,7 +327,7 @@ export default function ModelsPage() {
             datasetId={datasetId}
             datasetName={datasetName}
           />
-         
+        )}
 
         <Tabs
           defaultValue="models"
