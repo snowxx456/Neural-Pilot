@@ -11,16 +11,44 @@ import numpy as np
 
 def clean_json(data):
     """Clean data to ensure it's JSON serializable"""
-    if isinstance(data, list):
+    import numpy as np
+    
+    # Handle None values first
+    if data is None:
+        return None
+    # Handle NumPy scalar types
+    elif isinstance(data, (np.integer, np.int64)):
+        return int(data)
+    elif isinstance(data, (np.floating, np.float64)):
+        return float(data)
+    # Handle NumPy arrays
+    elif isinstance(data, np.ndarray):
+        return clean_json(data.tolist())
+    # Handle pandas DataFrame or Series (if you're using pandas)
+    elif str(type(data)).startswith("<class 'pandas."):
+        return clean_json(data.to_dict() if hasattr(data, 'to_dict') else data.tolist())
+    # Handle lists and tuples
+    elif isinstance(data, (list, tuple)):
         return [clean_json(item) for item in data]
+    # Handle dictionaries
     elif isinstance(data, dict):
-        return {k: clean_json(v) for k, v in data.items() 
-                if not (k == 'missing' and v != v)}  # Skip NaN values
+        return {str(k): clean_json(v) for k, v in data.items() 
+                if not (k == 'missing' and isinstance(v, float) and math.isnan(v))}  # Skip NaN values
+    # Handle NaN values
     elif isinstance(data, float) and math.isnan(data):
         return None  # Convert NaN to null
-    else:
+    # Handle other NumPy types with .item() method
+    elif hasattr(data, 'item') and callable(data.item):
+        return data.item()
+    # Handle other basic types
+    elif isinstance(data, (str, int, float, bool)):
         return data
-
+    # Handle any other types by converting to string
+    else:
+        try:
+            return str(data)
+        except:
+            return None
 
 class VisualizationHandler():
     def __init__(self,data, best_model, best_model_name, results,feature_names,label_encoder,
@@ -208,7 +236,7 @@ class VisualizationHandler():
         except Exception as e:
             return {"error": f"Could not prepare model comparison data: {str(e)}"}
     
-    def save_model(self, dataset_id=None,correlation=None, feature_importance=None, confusion_matrix=None, roc_curve=None, precision_recall_curve=None):
+    def save_model(self, dataset_id=None, correlation=None, feature_importance=None, confusion_matrix=None, roc_curve=None, precision_recall_curve=None):
         """Save the best model to a file and associate it with a dataset."""
         
         if self.best_model is None:
@@ -223,38 +251,46 @@ class VisualizationHandler():
         try:
             joblib.dump(self.best_model['pipeline'], model_path)
             
+            # Clean all data to ensure JSON serializability
+            cleaned_model_card = clean_json(self.model_card)
+            cleaned_correlation = clean_json(correlation) if correlation is not None else None
+            cleaned_feature_importance = clean_json(feature_importance) if feature_importance is not None else None
+            cleaned_confusion_matrix = clean_json(confusion_matrix) if confusion_matrix is not None else None
+            cleaned_roc_curve = clean_json(roc_curve) if roc_curve is not None else None
+            cleaned_precision_recall = clean_json(precision_recall_curve) if precision_recall_curve is not None else None
+            
             try:
-                # First clean the data
-                cleaned_model_card = clean_json(self.model_card)
-                # Test if it can be serialized to JSON
+                # Test if data can be serialized to JSON
                 json_str = json.dumps(cleaned_model_card)
-                # If no error, use the validated JSON
                 validated_model_card = json.loads(json_str)
             except TypeError as json_error:
-                print(f"JSON serialization error: {json_error}")
-                # Create a simplified version of the model card
+                print(f"JSON serialization error after cleaning: {json_error}")
+                # Fall back to a more aggressive approach if still having issues
                 validated_model_card = []
                 for model in self.model_card:
-                    # Keep only serializable fields
+                    # Keep only basic serializable fields
                     clean_model = {k: v for k, v in model.items() 
                                 if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
                     validated_model_card.append(clean_model)
             
-            # Save to database with validated JSON
+            # Save to database with cleaned JSON
             with open(model_path, 'rb') as f:
                 django_file = File(f)
                 model = ModelResult.objects.create(
                     dataset_id=dataset_id,
-                    results=validated_model_card,  # Use the validated model card
+                    results=validated_model_card,
                     model_file=django_file,
-                    correlation_matrix=correlation,
-                    feature_importance=feature_importance,
-                    confusion_matrix=confusion_matrix,
-                    precision_recall=precision_recall_curve,
-                    roc_curve=roc_curve,
+                    correlation_matrix=cleaned_correlation,
+                    feature_importance=cleaned_feature_importance,
+                    confusion_matrix=cleaned_confusion_matrix,
+                    precision_recall=cleaned_precision_recall,
+                    roc_curve=cleaned_roc_curve,
                 )
             
+            print(f"Model saved successfully with ID: {model.id}")
             return model.id
         except Exception as e:
             print(f"\nError saving model: {str(e)}")
+            model_path_str = model_path if os.path.exists(model_path) else "Not created"
+            print(f"Model file path: {model_path_str}")
             return None

@@ -230,92 +230,6 @@ export default function ModelsPage() {
   };
 
   // Function to render visualization content or loading state
-  const renderVisualizationsContent = () => {
-    if (isTraining || loading) {
-      return (
-        <div className="space-y-6">
-          {[...Array(5)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-1/3" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-[400px] w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      );
-    }
-    if (modelResultsEmpty) {
-      return renderNoData();
-    }
-
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Feature Importance</CardTitle>
-            <CardDescription>
-              Top features contributing to the best model's predictions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FeatureImportanceChart />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Confusion Matrix</CardTitle>
-            <CardDescription>
-              Visualization of the best model's prediction accuracy
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ConfusionMatrixChart />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Correlation Matrix</CardTitle>
-            <CardDescription>
-              Correlation between numerical features in the dataset
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CorrelationMatrixChart />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>ROC Curve</CardTitle>
-            <CardDescription>
-              Receiver Operating Characteristic curve for classification models
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RocCurveChart />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Precision-Recall Curve</CardTitle>
-            <CardDescription>
-              Precision vs Recall trade-off for classification models
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PrecisionRecallChart />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
 
   // Function to render comparison content or loading state
   const renderComparisonContent = () => {
@@ -415,7 +329,6 @@ export default function ModelsPage() {
           <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="models">Models</TabsTrigger>
             <TabsTrigger value="comparison">Comparison</TabsTrigger>
-            <TabsTrigger value="visualizations">Visualizations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="models" className="space-y-4">
@@ -424,10 +337,6 @@ export default function ModelsPage() {
 
           <TabsContent value="comparison">
             {renderComparisonContent()}
-          </TabsContent>
-
-          <TabsContent value="visualizations" className="space-y-6">
-            {renderVisualizationsContent()}
           </TabsContent>
         </Tabs>
       </div>
