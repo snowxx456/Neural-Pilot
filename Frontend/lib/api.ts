@@ -18,6 +18,7 @@ if (storedData) {
   }
 }
 
+
 // Fetch model results from the API
 export async function fetchModelResults(): Promise<ModelResult[]> {
   console.log(id);

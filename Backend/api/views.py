@@ -31,6 +31,8 @@ from model.modeltraining.visualization import VisualizationHandler  # Your visua
 from model.modeltraining.model_training import ModelTrainer  # Your model training logic
 import numpy as np
 from numpy import inf, isnan
+import re
+from django.shortcuts import get_object_or_404
 
 logger = logging.getLogger(__name__)        
 
@@ -305,7 +307,7 @@ def run_model_training_pipeline(id):
         
         
         # Skip hypertuning for now, but you could add actual hypertuning here
-        hyper = model_training.hypertune_best_model()
+        #hyper = model_training.hypertune_best_model()
         
         update_step_status_model(6, "completed", {
             "model": model_training.best_model_name,
@@ -789,36 +791,53 @@ def model_training(request, id):
     
 
 @api_view(['GET'])
-def download_model(request, model_id):
+def download_model(request, id):
     try:
-        # The model_id should now be the model name or identifier
-        # Extract just the filename from the model_id if it contains a path
-        model_filename = os.path.basename(model_id)
+        # Find the dataset
+        dataset = get_object_or_404(Dataset, id=id)
         
-        # Construct the path to the model file
-        model_path = os.path.join(settings.MEDIA_ROOT, 'models', model_filename)
+        # Get the latest model result for this dataset
+        model_result = dataset.model_results.all().order_by('-created_at').first()
         
-        # In case the model_id is already the full path
-        if not os.path.exists(model_path) and os.path.exists(model_id):
-            model_path = model_id
+        if not model_result:
+            return Response({
+                'error': 'No trained model found for this dataset'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get the file path - this needs to be the actual filesystem path
+        if hasattr(model_result.model_file, 'path'):
+            file_path = model_result.model_file.path  # Use path instead of url for filesystem access
+        else:
+            return Response({
+                'error': 'Model file has no associated path'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get filename for the downloaded file
+        filename = os.path.basename(file_path)
+        
+        # Create a custom filename with dataset name
+        safe_name = re.sub(r'[^\w\-_.]', '_', dataset.name)
+        filename = f"{safe_name}_model{os.path.splitext(filename)[1]}"
         
         # Check if file exists
-        if not os.path.exists(model_path):
+        if not os.path.exists(file_path):
             return Response({
-                'error': f'Model file not found: {model_filename}'
+                'error': 'Model file not found on server'
             }, status=status.HTTP_404_NOT_FOUND)
             
-        # Serve the model file to frontend
-        with open(model_path, 'rb') as f:
-            response = HttpResponse(f.read(), content_type='application/octet-stream')
-            response['Content-Disposition'] = f'attachment; filename="{os.path.basename(model_path)}"'
-            return response
+        # Serve the file
+        return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
 
+    except Dataset.DoesNotExist:
+        return Response({
+            'error': f'Dataset with ID {id} not found'
+        }, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         print(f"Download model error: {str(e)}")
         return Response({
-            'error': f'An error occurred while processing the model download: {str(e)}'
+            'error': f'An error occurred while processing the download: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 
 @api_view(['POST'])
 def download_dataset(request):

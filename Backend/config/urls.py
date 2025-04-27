@@ -25,7 +25,7 @@ urlpatterns = [
     path('api/precision_recall/<int:id>/', precision_recall, name='precision_recall'),
     path('api/stream/', sse_stream_model, name='sse_stream_model'),  # Note the trailing slash
     path('api/train/<int:id>/', start_model_training,name="start_model_training"),  # Note the trailing slash
-    path('api/download-model/<str:model_id>/', download_model, name='download-model'),
+    path('api/download-model/<int:id>/', download_model),
     path('api/models/<int:id>/',model_results)  
 
 ]

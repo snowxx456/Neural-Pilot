@@ -32,6 +32,7 @@ export default function ModelsPage() {
   const [modelResultsEmpty, setModelResultsEmpty] = useState(true);
   const [datasetId, setDatasetId] = useState<number | null>(null);
   const [datasetName, setDatasetName] = useState<string | null>(null);
+  const [showTrainingProgress, setShowTrainingProgress] = useState(false);
   // Make sure the API URL has the correct format
   const API = (
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/"
@@ -99,6 +100,7 @@ export default function ModelsPage() {
   };
 
   const startTraining = async () => {
+    setShowTrainingProgress(true);
     console.log("Start Training clicked"); // Debug log
     console.log("Dataset ID:", datasetId); // Debug log
 
@@ -119,7 +121,6 @@ export default function ModelsPage() {
       const data = await response.json();
       console.log(`Training started: ${data.message}`);
       setIsTraining(true);
-
     } catch (error) {
       console.error(
         `Error starting training: ${
@@ -395,7 +396,7 @@ export default function ModelsPage() {
           </div>
         </div>
 
-        {isTraining && (
+        {showTrainingProgress && (
           <TrainingProgress
             startTraining={startTraining}
             isTraining={isTraining}

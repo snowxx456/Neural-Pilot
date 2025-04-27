@@ -11,6 +11,21 @@ import {
 } from "@/components/ui/card";
 import { Loader2, Clock, AlertCircle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { list } from "postcss";
+
+let id: number | null = null;
+let name: string | null = null;
+const storedData = localStorage.getItem("selectedDataset");
+if (storedData) {
+  try {
+    const data = JSON.parse(storedData);
+    id = data.id;
+    name = data.name;
+    console.log("Dataset ID:", data.id);
+  } catch (error) {
+    console.error("Error parsing dataset from localStorage:", error);
+  }
+}
 
 interface StepDetails {
   [key: string]: any;
@@ -26,7 +41,7 @@ interface TrainingStep {
 interface TrainingProgressProps {
   startTraining: () => Promise<void>;
   isTraining: boolean;
-  onTrainingComplete: () => void;
+  onTrainingComplete: () => Promise<void>;
   datasetId: number | null;
   datasetName: string | null;
 }
@@ -46,11 +61,17 @@ export function TrainingProgress({
   const [connected, setConnected] = useState(false);
   const [trainingComplete, setTrainingComplete] = useState(false);
   const [steps, setSteps] = useState<{ [key: number]: TrainingStep }>({});
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Make sure the API URL has the correct format
   const API = (
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/"
   ).replace(/\/?$/, "/");
+  const Spinner = ({ className = "" }) => (
+    <div
+      className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent ${className}`}
+    ></div>
+  );
 
   // Models to simulate training
   const models = [
@@ -71,36 +92,48 @@ export function TrainingProgress({
     console.log(`[${timestamp}] ${message}`); // Add console.log for debugging
   };
 
-  useEffect(() => {
-    // Check if there's a saved model from previous training
-    const savedModelData = localStorage.getItem("trainedModel");
-    if (savedModelData) {
-      setTrainingComplete(true);
-      addLog(`Previously trained model is available for download.`);
-    }
-  }, []);
-
   // Download trained model function
-  const downloadModel = () => {
-    // Get model data from local storage
-    const savedModelData = localStorage.getItem("trainedModel");
-    if (!savedModelData) {
-      addLog("Error: No model available to download");
-      return;
+  const downloadModel = async () => {
+    try {
+      // Show loading indicator or notification
+      setIsDownloading(true);
+      addLog(`Initiating download for model: ${id}`);
+
+      // Check if we have a valid model ID
+      if (!id) {
+        throw new Error("Model ID is required for download");
+      }
+
+      // Construct the download URL
+      const downloadUrl = `${API}api/download-model/${id}/`;
+
+      // For smaller files, you could use fetch:
+      // const response = await fetch(downloadUrl);
+      // if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+      // const blob = await response.blob();
+      // const url = window.URL.createObjectURL(blob);
+
+      // For simplicity and better handling of large files, direct browser download:
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", `model-${id}.pkl`); // Default name, server will override
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      addLog(`Download started for model: ${id}`);
+      return true;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error("Error downloading model:", error);
+      addLog(`Error downloading model: ${errorMessage}`);
+
+      return false;
+    } finally {
+      // Hide loading indicator
+      setIsDownloading(false);
     }
-
-    const parsedModelData = JSON.parse(savedModelData);
-    const modelId = parsedModelData.model_name;
-
-    if (!modelId) {
-      addLog("Error: Model ID not found");
-      return;
-    }
-
-    // Create anchor element and trigger download
-    const downloadUrl = `${API}api/download-model/${modelId}/`;
-    window.location.href = downloadUrl;
-    addLog(`Downloading model: ${modelId}`);
   };
 
   // Connect to SSE stream
@@ -213,11 +246,6 @@ export function TrainingProgress({
                 dataset_id: datasetId,
                 dataset_name: datasetName,
               };
-
-              localStorage.setItem("trainedModel", JSON.stringify(modelData));
-              addLog(
-                `Training complete! Model ${data.details.model_name} is ready for download.`
-              );
             }
           }
         } catch (error) {
@@ -344,10 +372,18 @@ export function TrainingProgress({
               {trainingComplete && (
                 <Button
                   variant="outline"
-                  onClick={downloadModel}
+                  onClick={() => downloadModel()}
+                  disabled={isDownloading}
                   className="flex-1"
                 >
-                  Download Trained Model
+                  {isDownloading ? (
+                    <>
+                      <Spinner className="mr-2 h-4 w-4 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    "Download Trained Model"
+                  )}
                 </Button>
               )}
             </div>
