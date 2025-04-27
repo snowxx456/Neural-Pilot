@@ -58,6 +58,7 @@ export default function ModelsPage() {
           setModelResultsEmpty(true);
           console.log("No model results found.");
           return;
+        
         } else {
           setModelResultsEmpty(false);
         }
@@ -310,7 +311,7 @@ export default function ModelsPage() {
           </div>
         </div>
 
-        {showTrainingProgress && (
+        
           <TrainingProgress
             startTraining={startTraining}
             isTraining={isTraining}
@@ -318,7 +319,7 @@ export default function ModelsPage() {
             datasetId={datasetId}
             datasetName={datasetName}
           />
-        )}
+         
 
         <Tabs
           defaultValue="models"
