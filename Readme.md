@@ -2,7 +2,7 @@
 AI-powered machine learning workflow automation for everyone
 
 ## 📌 Problem Statement
-*Problem Statement 11:*  
+*Problem Statement 1:*  
 The AutoML Pipeline Generator is a CLI-based tool designed to automate and optimize machine learning workflows by leveraging AI agents for data preprocessing, feature engineering, model selection, hyperparameter tuning, and performance evaluation. Built on GroqCloud for high-speed processing, it intelligently analyzes datasets, recommends optimal models, and generates deployment-ready pipelines—reducing manual effort while improving accuracy for both beginners and experts in ML.
 
 ## 🎯 Objective
