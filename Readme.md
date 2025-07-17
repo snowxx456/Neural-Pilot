@@ -61,6 +61,86 @@ Bit-Storm Syndicate
 * Groq API key
 * Kaggle API key
 
+flowchart TB
+    subgraph "User & Presentation Layer"
+        Browser["User Browser"]:::ui
+        Frontend["Next.js Frontend"]:::ui
+    end
+
+    subgraph "API Layer"
+        API["Django REST API"]:::backend
+        Settings["Django Config"]:::backend
+        Urls["URL Routing"]:::backend
+        WSGI["WSGI Entry"]:::backend
+        Manage["manage.py"]:::backend
+    end
+
+    subgraph "ML Pipeline Modules"
+        subgraph "Data Cleaning"
+            DataCleaning["Data Cleaning Module"]:::ml
+            LLMBase["LLM Agent Base"]:::ml
+            LLMConfig["LLM Config"]:::ml
+            LLMScript["LLM Cleaning Script"]:::ml
+        end
+        subgraph "Data Visualization"
+            DataViz["Data Visualization Module"]:::ml
+        end
+        subgraph "Model Training"
+            ModelTrain["Model Training Module"]:::ml
+        end
+    end
+
+    subgraph "Storage & Database"
+        Media["File Storage (media/)"]:::storage
+        Uploads["Uploads (datasets, cleaned_datasets)"]:::storage
+        DB["SQLite Database"]:::storage
+    end
+
+    subgraph "External Services"
+        GroqClient["Groq LLM API"]:::external
+        KaggleConfigNode["Kaggle Config"]:::external
+        KaggleJSON["Kaggle Credentials"]:::external
+        Downloads["Kaggle Downloads"]:::external
+    end
+
+    Browser -->|"HTTP/HTTPS"| Frontend
+    Frontend -->|"REST API (JSON)"| API
+    API -->|"Internal Python Calls"| DataCleaning
+    API -->|"Internal Python Calls"| DataViz
+    API -->|"Internal Python Calls"| ModelTrain
+    DataCleaning -->|"pickle read/write"| Media
+    DataCleaning -->|"pickle read/write"| Uploads
+    DataViz -->|"load charts data"| Media
+    ModelTrain -->|"store models"| Media
+    API -->|"SQL Queries"| DB
+    DataCleaning -->|"PandasAI API Call"| GroqClient
+    API -->|"Kaggle API"| Downloads
+
+    click Frontend "https://github.com/snowxx456/neural-pilot/tree/main/Frontend/"
+    click API "https://github.com/snowxx456/neural-pilot/tree/main/Backend/api/"
+    click Settings "https://github.com/snowxx456/neural-pilot/blob/main/Backend/config/settings.py"
+    click Urls "https://github.com/snowxx456/neural-pilot/blob/main/Backend/config/urls.py"
+    click WSGI "https://github.com/snowxx456/neural-pilot/blob/main/Backend/config/wsgi.py"
+    click Manage "https://github.com/snowxx456/neural-pilot/blob/main/Backend/manage.py"
+    click DataCleaning "https://github.com/snowxx456/neural-pilot/blob/main/Backend/model/data_cleaning/data_preprocessing.py"
+    click LLMBase "https://github.com/snowxx456/neural-pilot/blob/main/Backend/model/data_cleaning/llm/agent/base.py"
+    click LLMConfig "https://github.com/snowxx456/neural-pilot/blob/main/Backend/model/data_cleaning/llm/config.py"
+    click LLMScript "https://github.com/snowxx456/neural-pilot/blob/main/Backend/llm_clean_data_script.py"
+    click DataViz "https://github.com/snowxx456/neural-pilot/blob/main/Backend/model/data_visualization/data_visualization.py"
+    click ModelTrain "https://github.com/snowxx456/neural-pilot/tree/main/Backend/model/modeltraining/"
+    click Media "https://github.com/snowxx456/neural-pilot/tree/main/Backend/media/"
+    click Uploads "https://github.com/snowxx456/neural-pilot/tree/main/Backend/uploads/"
+    click GroqClient "https://github.com/snowxx456/neural-pilot/blob/main/Backend/model/search/groq_client.py"
+    click KaggleConfigNode "https://github.com/snowxx456/neural-pilot/blob/main/Backend/model/search/config_secrets.py"
+    click KaggleJSON "https://github.com/snowxx456/neural-pilot/blob/main/Backend/model/search/kaggle.json"
+    click Downloads "https://github.com/snowxx456/neural-pilot/tree/main/Backend/model/search/downloads/"
+
+    classDef ui fill:#D0E8FF,stroke:#3399FF,color:#000000;
+    classDef backend fill:#DFF0D8,stroke:#5CB85C,color:#000000;
+    classDef ml fill:#EAE0F8,stroke:#8A2BE2,color:#000000;
+    classDef storage fill:#EFEFEF,stroke:#AAAAAA,color:#000000;
+    classDef external fill:#FFE5CC,stroke:#FF9933,color:#000000;
+
 *Local Setup:*
 
 ```bash
